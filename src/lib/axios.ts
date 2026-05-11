@@ -1,9 +1,17 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+if (!BASE_URL) {
+  throw new Error(
+    'NEXT_PUBLIC_API_URL is not defined. Check your .env.local or Vercel environment variables.',
+  );
+}
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL, // http://localhost:6500/api
-  withCredentials: true, // sends httpOnly cookie automatically
+  baseURL: BASE_URL,
+  withCredentials: true,
 });
 
 // Attach access token to every request
@@ -41,7 +49,7 @@ api.interceptors.response.use(
 
       try {
         const { data } = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
+          `${BASE_URL}/auth/refresh`,
           {},
           { withCredentials: true },
         );

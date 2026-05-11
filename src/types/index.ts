@@ -7,8 +7,8 @@ export interface User {
 
 export interface Message {
   _id: string;
-  sender: User;
-  chat: string;
+  sender: Pick<User, '_id' | 'username' | 'avatar'>;
+  chat: string; // chat ID string (not populated)
   content: string;
   file?: string;
   createdAt: string;

@@ -1,2 +1,0 @@
-// DB connection
-export {};

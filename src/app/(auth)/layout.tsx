@@ -3,8 +3,6 @@
 // =======================
 
 import Carousel from '@/components/auth/ui/CarouselItem';
-import { webpImages } from '@/utils/LocalImages';
-import { FaLessThanEqual } from 'react-icons/fa6';
 
 export default function AuthLayout({
   children,

@@ -1,40 +1,67 @@
 import axios from 'axios';
+import { useAuthStore } from '@/store/authStore';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: process.env.NEXT_PUBLIC_API_URL, // http://localhost:6500/api
+  withCredentials: true, // sends httpOnly cookie automatically
 });
 
-// Request interceptor — attach token if present
-api.interceptors.request.use(
-  (config) => {
-    const token =
-      typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error),
-);
+// Attach access token to every request
+api.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().accessToken;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-// Response interceptor — handle global errors
+// Auto-refresh on 401
+let isRefreshing = false;
+let queue: Array<(token: string) => void> = [];
+
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const status = error.response?.status;
+  (res) => res,
+  async (err) => {
+    const original = err.config;
 
-    if (status === 401) {
-      // Token expired or invalid — clear storage and redirect
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
+    if (err.response?.status === 401 && !original._retry) {
+      original._retry = true;
+
+      if (isRefreshing) {
+        // Queue requests while refresh is in progress
+        return new Promise((resolve) => {
+          queue.push((token) => {
+            original.headers.Authorization = `Bearer ${token}`;
+            resolve(api(original));
+          });
+        });
+      }
+
+      isRefreshing = true;
+
+      try {
+        const { data } = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
+          {},
+          { withCredentials: true },
+        );
+
+        const newToken = data.accessToken;
+        useAuthStore.getState().setAccessToken(newToken);
+        queue.forEach((cb) => cb(newToken));
+        queue = [];
+        original.headers.Authorization = `Bearer ${newToken}`;
+        return api(original);
+      } catch {
+        useAuthStore.getState().logout();
         window.location.href = '/login';
+        return Promise.reject(err);
+      } finally {
+        isRefreshing = false;
       }
     }
 
-    return Promise.reject(error);
+    return Promise.reject(err);
   },
 );
 

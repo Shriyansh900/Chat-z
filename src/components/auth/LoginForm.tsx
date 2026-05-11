@@ -3,40 +3,33 @@
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { loginSchema, LoginInput } from '@/validations/auth.schema';
+import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/axios';
-import type { AuthResponse } from '@/types/user';
 import axios from 'axios';
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginForm() {
   const router = useRouter();
+  const setAuth = useAuthStore((s) => s.setAuth);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     setError,
-  } = useForm<LoginFormValues>({
+  } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = async (data: LoginFormValues) => {
+  const onSubmit = async (data: LoginInput) => {
     try {
-      const res = await api.post<AuthResponse>('/auth/login', data);
-      localStorage.setItem('token', res.data.token);
+      const res = await api.post('/auth/login', data);
+      setAuth(res.data.user, res.data.accessToken);
       router.push('/chat');
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? (err.response?.data?.message ?? 'Login failed. Please try again.')
         : 'An unexpected error occurred.';
-
       setError('root', { message });
     }
   };
@@ -55,12 +48,10 @@ export default function LoginForm() {
         </span>
       </p>
 
-      {/* Root error */}
       {errors.root && (
         <p className="text-red-400 text-sm mb-4">{errors.root.message}</p>
       )}
 
-      {/* Email */}
       <div className="mb-4">
         <input
           type="email"
@@ -73,7 +64,6 @@ export default function LoginForm() {
         )}
       </div>
 
-      {/* Password */}
       <div className="mb-6">
         <input
           type="password"

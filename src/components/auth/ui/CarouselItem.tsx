@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion, PanInfo, useMotionValue, useTransform } from 'motion/react';
+import { motion, PanInfo, useMotionValue, useTransform } from 'framer-motion';
 import React, { JSX } from 'react';
 
 // replace icons with your own if needed
@@ -75,8 +75,8 @@ interface CarouselItemProps {
   cardHeight: number;
   round: boolean;
   trackItemOffset: number;
-  x: any;
-  transition: any;
+  x: ReturnType<typeof useMotionValue<number>>;
+  transition: object;
 }
 
 function CarouselItem({
@@ -144,10 +144,11 @@ export default function Carousel({
   }, [items, loop]);
 
   const [position, setPosition] = useState<number>(loop ? 1 : 0);
-  const x = useMotionValue(0);
+  const x = useMotionValue(-(loop ? 1 : 0) * (baseWidth - 16 * 2 + GAP));
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [isJumping, setIsJumping] = useState<boolean>(false);
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
+  const prevItemsLengthRef = useRef<number>(items.length);
 
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -176,16 +177,18 @@ export default function Carousel({
   }, [autoplay, autoplayDelay, isHovered, pauseOnHover, itemsForRender.length]);
 
   useEffect(() => {
+    if (prevItemsLengthRef.current === items.length) return;
+    prevItemsLengthRef.current = items.length;
     const startingPosition = loop ? 1 : 0;
     setPosition(startingPosition);
     x.set(-startingPosition * trackItemOffset);
   }, [items.length, loop, trackItemOffset, x]);
 
-  useEffect(() => {
-    if (!loop && position > itemsForRender.length - 1) {
-      setPosition(Math.max(0, itemsForRender.length - 1));
-    }
-  }, [itemsForRender.length, loop, position]);
+  // Derive a safe position without setState-in-effect
+  const safePosition =
+    !loop && position > itemsForRender.length - 1
+      ? Math.max(0, itemsForRender.length - 1)
+      : position;
 
   const effectiveTransition = isJumping ? { duration: 0 } : SPRING_OPTIONS;
 
@@ -261,8 +264,8 @@ export default function Carousel({
     items.length === 0
       ? 0
       : loop
-        ? (position - 1 + items.length) % items.length
-        : Math.min(position, items.length - 1);
+        ? (safePosition - 1 + items.length) % items.length
+        : Math.min(safePosition, items.length - 1);
 
   return (
     <div
@@ -287,11 +290,11 @@ export default function Carousel({
           width: itemWidth,
           gap: `${GAP}px`,
           perspective: 1000,
-          perspectiveOrigin: `${position * trackItemOffset + itemWidth / 2}px 50%`,
+          perspectiveOrigin: `${safePosition * trackItemOffset + itemWidth / 2}px 50%`,
           x,
         }}
         onDragEnd={handleDragEnd}
-        animate={{ x: -(position * trackItemOffset) }}
+        animate={{ x: -(safePosition * trackItemOffset) }}
         transition={effectiveTransition}
         onAnimationStart={handleAnimationStart}
         onAnimationComplete={handleAnimationComplete}
@@ -338,12 +341,3 @@ export default function Carousel({
     </div>
   );
 }
-
-
-  //  <div className="flex gap-2 mt-4">
-  //             <span className=" bg-white/40 rounded"></span>
-  //             <span className="w-6 h-1 bg-white/40 rounded"></span>
-  //             <span className="w-6 h-1 bg-white rounded"></span>
-  //           </div>
-  //         </div>
-  //       </div>

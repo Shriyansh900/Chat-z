@@ -3,41 +3,33 @@
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { signupSchema, SignupInput } from '@/validations/auth.schema';
+import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/axios';
-import type { AuthResponse } from '@/types/user';
 import axios from 'axios';
-
-const signupSchema = z.object({
-  username: z.string().min(3, 'Username must be at least 3 characters'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
-
-type SignupFormValues = z.infer<typeof signupSchema>;
 
 export default function SignupForm() {
   const router = useRouter();
+  const setAuth = useAuthStore((s) => s.setAuth);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     setError,
-  } = useForm<SignupFormValues>({
+  } = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
   });
 
-  const onSubmit = async (data: SignupFormValues) => {
+  const onSubmit = async (data: SignupInput) => {
     try {
-      const res = await api.post<AuthResponse>('/auth/signup', data);
-      localStorage.setItem('token', res.data.token);
+      const res = await api.post('/auth/signup', data);
+      setAuth(res.data.user, res.data.accessToken);
       router.push('/chat');
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? (err.response?.data?.message ?? 'Signup failed. Please try again.')
         : 'An unexpected error occurred.';
-
       setError('root', { message });
     }
   };
@@ -56,12 +48,10 @@ export default function SignupForm() {
         </span>
       </p>
 
-      {/* Root error */}
       {errors.root && (
         <p className="text-red-400 text-sm mb-4">{errors.root.message}</p>
       )}
 
-      {/* Username */}
       <div className="mb-4">
         <input
           type="text"
@@ -74,7 +64,6 @@ export default function SignupForm() {
         )}
       </div>
 
-      {/* Email */}
       <div className="mb-4">
         <input
           type="email"
@@ -87,7 +76,6 @@ export default function SignupForm() {
         )}
       </div>
 
-      {/* Password */}
       <div className="mb-6">
         <input
           type="password"

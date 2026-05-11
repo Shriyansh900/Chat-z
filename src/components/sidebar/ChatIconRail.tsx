@@ -2,6 +2,7 @@
 
 import { MessageSquare, Users, LayoutGrid, Phone, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/store/authStore';
 
 const navItems = [
   { icon: MessageSquare, label: 'Chats', active: true },
@@ -12,6 +13,8 @@ const navItems = [
 ];
 
 export default function ChatIconRail() {
+  const { user } = useAuthStore();
+  const initials = user?.username?.slice(0, 2).toUpperCase() ?? 'U';
   return (
     <div className="flex flex-col items-center w-14 h-full bg-white border-r border-gray-100 py-3 gap-1 shrink-0">
       {/* App logo */}
@@ -39,9 +42,17 @@ export default function ChatIconRail() {
 
       {/* Avatar at bottom */}
       <div className="mt-auto relative">
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
-          S
-        </div>
+        {user?.avatar ? (
+          <img
+            src={user.avatar}
+            alt={user.username}
+            className="w-9 h-9 rounded-full object-cover"
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white text-sm font-semibold">
+            {initials}
+          </div>
+        )}
         <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full" />
       </div>
     </div>

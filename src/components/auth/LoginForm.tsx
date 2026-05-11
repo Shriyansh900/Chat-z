@@ -5,12 +5,15 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, LoginInput } from '@/validations/auth.schema';
 import { useAuthStore } from '@/store/authStore';
-import api from '@/lib/axios';
 import axios from 'axios';
+import { BASE_URL } from '@/lib/axios';
+import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginForm() {
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -23,7 +26,10 @@ export default function LoginForm() {
 
   const onSubmit = async (data: LoginInput) => {
     try {
-      const res = await api.post('/auth/login', data);
+      // Use raw axios — bypasses the 401 refresh interceptor on wrong password
+      const res = await axios.post(`${BASE_URL}/auth/login`, data, {
+        withCredentials: true,
+      });
       setAuth(res.data.user, res.data.accessToken);
       router.push('/chat');
     } catch (err) {
@@ -65,12 +71,26 @@ export default function LoginForm() {
       </div>
 
       <div className="mb-6">
-        <input
-          type="password"
-          placeholder="Password"
-          {...register('password')}
-          className="w-full bg-[#2a2640] p-3 rounded-lg"
-        />
+        <div className="relative">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Password"
+            {...register('password')}
+            className="w-full bg-[#2a2640] p-3 rounded-lg pr-10"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200 transition-colors"
+            tabIndex={-1}
+          >
+            {showPassword ? (
+              <EyeOff className="w-4 h-4" />
+            ) : (
+              <Eye className="w-4 h-4" />
+            )}
+          </button>
+        </div>
         {errors.password && (
           <p className="text-red-400 text-xs mt-1">{errors.password.message}</p>
         )}

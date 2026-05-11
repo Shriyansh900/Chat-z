@@ -1,21 +1,16 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/store/authStore';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
-if (!BASE_URL) {
-  throw new Error(
-    'NEXT_PUBLIC_API_URL is not defined. Check your .env.local or Vercel environment variables.',
-  );
-}
-
+// ── Authenticated API instance ────────────────────────────────
 const api = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true,
+  withCredentials: true, // sends httpOnly refresh-token cookie automatically
 });
 
-// Attach access token to every request
-api.interceptors.request.use((config) => {
+// ── Request: attach access token ─────────────────────────────
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useAuthStore.getState().accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -23,53 +18,80 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Auto-refresh on 401
+// ── Response: silent token refresh on 401 ────────────────────
 let isRefreshing = false;
-let queue: Array<(token: string) => void> = [];
+let queue: Array<{
+  resolve: (token: string) => void;
+  reject: (err: unknown) => void;
+}> = [];
+
+function processQueue(err: unknown, token: string | null) {
+  queue.forEach(({ resolve, reject }) => {
+    if (err) reject(err);
+    else resolve(token!);
+  });
+  queue = [];
+}
 
 api.interceptors.response.use(
   (res) => res,
   async (err) => {
-    const original = err.config;
+    const original = err.config as AxiosRequestConfig & { _retry?: boolean };
 
-    if (err.response?.status === 401 && !original._retry) {
-      original._retry = true;
-
-      if (isRefreshing) {
-        // Queue requests while refresh is in progress
-        return new Promise((resolve) => {
-          queue.push((token) => {
-            original.headers.Authorization = `Bearer ${token}`;
-            resolve(api(original));
-          });
-        });
-      }
-
-      isRefreshing = true;
-
-      try {
-        const { data } = await axios.post(
-          `${BASE_URL}/auth/refresh`,
-          {},
-          { withCredentials: true },
-        );
-
-        const newToken = data.accessToken;
-        useAuthStore.getState().setAccessToken(newToken);
-        queue.forEach((cb) => cb(newToken));
-        queue = [];
-        original.headers.Authorization = `Bearer ${newToken}`;
-        return api(original);
-      } catch {
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
-        return Promise.reject(err);
-      } finally {
-        isRefreshing = false;
-      }
+    // Don't intercept non-401s, already-retried requests,
+    // or the refresh endpoint itself (prevents infinite loop)
+    if (
+      err.response?.status !== 401 ||
+      original._retry ||
+      original.url?.includes('/auth/refresh') ||
+      original.url?.includes('/auth/login') ||
+      original.url?.includes('/auth/signup')
+    ) {
+      return Promise.reject(err);
     }
 
-    return Promise.reject(err);
+    original._retry = true;
+
+    if (isRefreshing) {
+      return new Promise<string>((resolve, reject) => {
+        queue.push({ resolve, reject });
+      }).then((token) => {
+        original.headers = {
+          ...original.headers,
+          Authorization: `Bearer ${token}`,
+        };
+        return api(original);
+      });
+    }
+
+    isRefreshing = true;
+
+    try {
+      const { data } = await axios.post<{ accessToken: string }>(
+        `${BASE_URL}/auth/refresh`,
+        {},
+        { withCredentials: true },
+      );
+
+      const newToken = data.accessToken;
+      useAuthStore.getState().setAccessToken(newToken);
+      processQueue(null, newToken);
+
+      original.headers = {
+        ...original.headers,
+        Authorization: `Bearer ${newToken}`,
+      };
+      return api(original);
+    } catch (refreshErr) {
+      processQueue(refreshErr, null);
+      useAuthStore.getState().logout();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+      return Promise.reject(refreshErr);
+    } finally {
+      isRefreshing = false;
+    }
   },
 );
 

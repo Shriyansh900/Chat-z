@@ -1,3 +1,6 @@
+'use client';
+
+import { use } from 'react';
 import ChatWindow from '@/components/chat/ChatWindow';
 import ChatInput from '@/components/chat/ChatInput';
 
@@ -5,8 +8,8 @@ interface ChatDetailPageProps {
   params: Promise<{ chatId: string }>;
 }
 
-export default async function ChatDetailPage({ params }: ChatDetailPageProps) {
-  const { chatId } = await params;
+export default function ChatDetailPage({ params }: ChatDetailPageProps) {
+  const { chatId } = use(params);
 
   return (
     <>

@@ -5,8 +5,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { signupSchema, SignupInput } from '@/validations/auth.schema';
 import { useAuthStore } from '@/store/authStore';
-import api from '@/lib/axios';
 import axios from 'axios';
+import { BASE_URL } from '@/lib/axios';
 
 export default function SignupForm() {
   const router = useRouter();
@@ -23,7 +23,10 @@ export default function SignupForm() {
 
   const onSubmit = async (data: SignupInput) => {
     try {
-      const res = await api.post('/auth/signup', data);
+      // Use raw axios — bypasses the 401 refresh interceptor
+      const res = await axios.post(`${BASE_URL}/auth/signup`, data, {
+        withCredentials: true,
+      });
       setAuth(res.data.user, res.data.accessToken);
       router.push('/chat');
     } catch (err) {

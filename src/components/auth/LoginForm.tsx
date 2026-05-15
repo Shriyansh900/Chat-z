@@ -41,10 +41,19 @@ export default function LoginForm() {
       setPendingEmail(data.email);
       setStep('otp');
     } catch (err) {
-      const message = axios.isAxiosError(err)
-        ? (err.response?.data?.message ?? 'Login failed. Please try again.')
-        : 'An unexpected error occurred.';
-      setError('root', { message });
+      if (!axios.isAxiosError(err)) {
+        setError('root', { message: 'An unexpected error occurred.' });
+        return;
+      }
+      const status = err.response?.status;
+      const fallback = 'Login failed. Please try again.';
+      if (status === 503) {
+        setError('root', {
+          message: 'Failed to send OTP email. Please try again.',
+        });
+      } else {
+        setError('root', { message: err.response?.data?.message ?? fallback });
+      }
     }
   };
 

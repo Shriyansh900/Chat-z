@@ -9,58 +9,88 @@ import { Loader2 } from 'lucide-react';
 import api from '@/lib/axios';
 import MessageBubble from './MessageBubble';
 
-interface ChatWindowProps {
-  chatId?: string;
+// Resolve chat ID from message — backend may send chat as string or populated object
+function getChatId(chat: Message['chat']): string {
+  return typeof chat === 'string' ? chat : chat._id;
 }
 
-export default function ChatWindow({ chatId: _chatId }: ChatWindowProps = {}) {
-  const { messages, addMessage, setMessages, activeChat } = useChatStore();
+export default function ChatWindow() {
+  const { messages, addMessage, setMessages, activeChat, deleteMessage } =
+    useChatStore();
   const { user } = useAuthStore();
   const [isTyping, setIsTyping] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // ── Fetch messages when active chat changes ───────────────
+  // Ref tracks the currently loaded chat ID to guard in-flight responses
+  const activeChatIdRef = useRef<string | null>(null);
+
+  // ── Fetch messages + join socket room when active chat changes ──
   useEffect(() => {
     if (!activeChat) return;
+    if (activeChatIdRef.current === activeChat._id) return; // already loaded
 
+    activeChatIdRef.current = activeChat._id;
+    setMessages([]);
     setLoadingMessages(true);
-    setMessages([]); // clear previous chat messages immediately
+
+    // Join the socket room so we receive messages for this chat
+    getSocket().emit('join_chat', activeChat._id);
 
     api
       .get(`/messages/${activeChat._id}`)
       .then((res) => {
+        if (activeChatIdRef.current !== activeChat._id) return; // stale
         const data = res.data;
         setMessages(Array.isArray(data) ? data : data ? [data] : []);
       })
-      .catch(() => setMessages([]))
-      .finally(() => setLoadingMessages(false));
+      .catch(() => {
+        if (activeChatIdRef.current === activeChat._id) setMessages([]);
+      })
+      .finally(() => {
+        if (activeChatIdRef.current === activeChat._id)
+          setLoadingMessages(false);
+      });
   }, [activeChat?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Socket: real-time messages + typing ──────────────────
+  // ── Socket listeners — registered once, use refs for latest values ──
+  const activeChatIdForSocket = useRef<string | null>(null);
+  const currentUserId = useRef<string | null>(null);
+  activeChatIdForSocket.current = activeChat?._id ?? null;
+  currentUserId.current = user?._id ?? null;
+
   useEffect(() => {
     const socket = getSocket();
 
-    socket.on('receive_message', (message: Message) => {
-      // Only add if it belongs to the active chat
-      if (message.chat === activeChat?._id) {
-        addMessage(message);
-      }
-    });
-    socket.on('typing', () => setIsTyping(true));
-    socket.on('stop_typing', () => setIsTyping(false));
+    const onMessage = (message: Message) => {
+      // Skip own messages — sender already added via addMessage() in ChatInput
+      if (message.sender._id === currentUserId.current) return;
+
+      // Skip messages not belonging to the active chat
+      const msgChatId = getChatId(message.chat);
+      if (msgChatId !== activeChatIdForSocket.current) return;
+
+      addMessage(message);
+    };
+
+    const onTyping = () => setIsTyping(true);
+    const onStopTyping = () => setIsTyping(false);
+
+    socket.on('receive_message', onMessage);
+    socket.on('typing', onTyping);
+    socket.on('stop_typing', onStopTyping);
 
     return () => {
-      socket.off('receive_message');
-      socket.off('typing');
-      socket.off('stop_typing');
+      socket.off('receive_message', onMessage);
+      socket.off('typing', onTyping);
+      socket.off('stop_typing', onStopTyping);
     };
-  }, [addMessage, activeChat?._id]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Auto-scroll to bottom ─────────────────────────────────
+  // ── Auto-scroll on new messages ──────────────────────────
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages.length]);
 
   // ── Group messages by date ────────────────────────────────
   const grouped = messages.reduce<Record<string, Message[]>>((acc, msg) => {
@@ -74,7 +104,6 @@ export default function ChatWindow({ chatId: _chatId }: ChatWindowProps = {}) {
     return acc;
   }, {});
 
-  // ── Empty state ───────────────────────────────────────────
   if (!activeChat) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[#f0f2f5]">
@@ -85,7 +114,6 @@ export default function ChatWindow({ chatId: _chatId }: ChatWindowProps = {}) {
     );
   }
 
-  // ── Loading state ─────────────────────────────────────────
   if (loadingMessages) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[#f0f2f5]">
@@ -95,9 +123,8 @@ export default function ChatWindow({ chatId: _chatId }: ChatWindowProps = {}) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-4 bg-[#f0f2f5]">
+    <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 bg-[#f0f2f5]">
       <div className="flex flex-col gap-5">
-        {/* Empty chat */}
         {Object.keys(grouped).length === 0 && (
           <div className="flex items-center justify-center mt-16">
             <p className="text-xs text-gray-400">No messages yet. Say hello!</p>
@@ -106,18 +133,16 @@ export default function ChatWindow({ chatId: _chatId }: ChatWindowProps = {}) {
 
         {Object.entries(grouped).map(([date, msgs]) => (
           <div key={date} className="flex flex-col gap-2">
-            {/* Date divider */}
             <div className="flex items-center justify-center my-1">
               <span className="text-xs text-gray-500 bg-[#f0f2f5] px-3 py-0.5 rounded-full">
                 {date}
               </span>
             </div>
-
-            {/* Messages */}
             <div className="flex flex-col gap-1">
               {msgs.map((msg) => (
                 <MessageBubble
                   key={msg._id}
+                  messageId={msg._id}
                   content={msg.content}
                   file={msg.file}
                   time={new Date(msg.createdAt).toLocaleTimeString('en-US', {
@@ -125,13 +150,13 @@ export default function ChatWindow({ chatId: _chatId }: ChatWindowProps = {}) {
                     minute: '2-digit',
                   })}
                   isOwn={msg.sender._id === user?._id}
+                  onDelete={deleteMessage}
                 />
               ))}
             </div>
           </div>
         ))}
 
-        {/* Typing indicator */}
         {isTyping && (
           <div className="flex justify-start">
             <div className="bg-white px-4 py-2 rounded-2xl rounded-bl-sm text-xs text-gray-400 italic shadow-sm">

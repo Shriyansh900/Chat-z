@@ -8,8 +8,11 @@ interface ChatState {
   sidebarOpen: boolean;
   setChats: (chats: Chat[]) => void;
   setActiveChat: (chat: Chat) => void;
+  clearActiveChat: () => void;
+  removeChat: (chatId: string) => void;
   setMessages: (messages: Message[]) => void;
   addMessage: (message: Message) => void;
+  deleteMessage: (messageId: string) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
 }
@@ -21,9 +24,21 @@ export const useChatStore = create<ChatState>((set) => ({
   sidebarOpen: true,
   setChats: (chats) => set({ chats }),
   setActiveChat: (activeChat) => set({ activeChat }),
+  clearActiveChat: () => set({ activeChat: null, messages: [] }),
+  removeChat: (chatId) =>
+    set((state) => ({
+      chats: state.chats.filter((c) => c._id !== chatId),
+      // Also clear active chat if the removed chat was open
+      activeChat: state.activeChat?._id === chatId ? null : state.activeChat,
+      messages: state.activeChat?._id === chatId ? [] : state.messages,
+    })),
   setMessages: (messages) => set({ messages }),
-  addMessage: (message) =>
+  addMessage: (message: Message) =>
     set((state) => ({ messages: [...state.messages, message] })),
+  deleteMessage: (messageId: string) =>
+    set((state) => ({
+      messages: state.messages.filter((m) => m._id !== messageId),
+    })),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
 }));

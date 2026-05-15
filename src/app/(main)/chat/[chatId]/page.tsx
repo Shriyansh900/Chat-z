@@ -13,7 +13,7 @@ export default function ChatDetailPage({ params }: ChatDetailPageProps) {
 
   return (
     <>
-      <ChatWindow chatId={chatId} />
+      <ChatWindow />
       <ChatInput />
     </>
   );

@@ -62,10 +62,21 @@ export default function SignupForm() {
       setPendingEmail(data.email);
       setStep('otp');
     } catch (err) {
-      const message = axios.isAxiosError(err)
-        ? (err.response?.data?.message ?? 'Signup failed. Please try again.')
-        : 'An unexpected error occurred.';
-      setError('root', { message });
+      if (!axios.isAxiosError(err)) {
+        setError('root', { message: 'An unexpected error occurred.' });
+        return;
+      }
+      const status = err.response?.status;
+      if (status === 503) {
+        setError('root', {
+          message: 'Failed to send OTP email. Please try again.',
+        });
+      } else {
+        setError('root', {
+          message:
+            err.response?.data?.message ?? 'Signup failed. Please try again.',
+        });
+      }
     }
   };
 
@@ -110,10 +121,26 @@ export default function SignupForm() {
       );
       setResendMsg('A new OTP has been sent to your email.');
     } catch (err) {
-      const message = axios.isAxiosError(err)
-        ? (err.response?.data?.message ?? 'Failed to resend OTP.')
-        : 'An unexpected error occurred.';
-      setOtpError(message);
+      if (!axios.isAxiosError(err)) {
+        setOtpError('An unexpected error occurred.');
+        setResendLoading(false);
+        return;
+      }
+      const status = err.response?.status;
+      if (status === 404) {
+        // Pending signup record expired — send user back to start
+        setOtpError('Session expired. Please sign up again.');
+        setTimeout(() => {
+          setStep('form');
+          setOtp('');
+          setOtpError('');
+          setResendMsg('');
+        }, 1500);
+      } else if (status === 503) {
+        setOtpError('Failed to send OTP email. Please try again.');
+      } else {
+        setOtpError(err.response?.data?.message ?? 'Failed to resend OTP.');
+      }
     } finally {
       setResendLoading(false);
     }

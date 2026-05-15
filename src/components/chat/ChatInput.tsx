@@ -10,7 +10,7 @@ import api from '@/lib/axios';
 
 const EmojiPicker = dynamic(() => import('./EmojiPicker'), { ssr: false });
 
-const TYPING_TIMEOUT = 2000;
+const TYPING_TIMEOUT = 1500;
 const ACCEPTED_FILE_TYPES = 'image/*,video/*,.pdf,.doc,.docx,.txt';
 
 export default function ChatInput() {
@@ -82,7 +82,8 @@ export default function ChatInput() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       addMessage(res.data);
-      getSocket().emit('send_message', res.data);
+      // Broadcast to room — include chatId so backend can route correctly
+      getSocket().emit('send_message', { ...res.data, chatId: activeChat._id });
     } catch {
       // Restore on failure
       setValue(trimmed);
@@ -108,7 +109,7 @@ export default function ChatInput() {
   const isImage = attachedFile?.type.startsWith('image/');
 
   return (
-    <div className="px-4 py-2.5 bg-white border-t border-gray-100 shrink-0 relative">
+    <div className="px-2 sm:px-4 py-2.5 bg-white border-t border-gray-100 shrink-0 relative">
       {/* Emoji picker */}
       {showEmoji && (
         <>

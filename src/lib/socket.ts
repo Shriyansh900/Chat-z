@@ -8,6 +8,7 @@ export const getSocket = (): Socket => {
     socket = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
       withCredentials: true,
       autoConnect: false,
+      transports: ['websocket'],
     });
   }
   return socket;
@@ -15,15 +16,23 @@ export const getSocket = (): Socket => {
 
 export const connectSocket = (userId: string) => {
   const s = getSocket();
-  if (!s.connected) {
-    s.connect();
+  if (s.connected) return;
+
+  // Emit setup only after the connection is established
+  s.once('connect', () => {
     s.emit('setup', userId);
-    s.on('connected', () => useSocketStore.getState().setConnected(true));
-  }
+  });
+
+  s.on('connected', () => {
+    useSocketStore.getState().setConnected(true);
+  });
+
+  s.connect();
 };
 
 export const disconnectSocket = () => {
-  socket?.disconnect();
+  if (!socket) return;
+  socket.disconnect();
   useSocketStore.getState().setConnected(false);
   socket = null;
 };

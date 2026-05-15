@@ -45,7 +45,10 @@ api.interceptors.response.use(
       original._retry ||
       original.url?.includes('/auth/refresh') ||
       original.url?.includes('/auth/login') ||
-      original.url?.includes('/auth/signup')
+      original.url?.includes('/auth/signup') ||
+      original.url?.includes('/auth/verify-login') ||
+      original.url?.includes('/auth/verify-signup') ||
+      original.url?.includes('/auth/resend-otp')
     ) {
       return Promise.reject(err);
     }

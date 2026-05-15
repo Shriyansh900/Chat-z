@@ -15,7 +15,7 @@ import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
 import { useEffect, useRef, useState } from 'react';
 import api from '@/lib/axios';
-import { User } from '@/types';
+import { User, Group } from '@/types';
 import {
   Dialog,
   DialogContent,
@@ -25,21 +25,20 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import CreateGroupModal from './CreateGroupModal';
 
 const tabs = ['Chats', 'Channels', 'Direct', 'Groups'];
 const DEBOUNCE_MS = 400;
 
 type RequestStatus = 'idle' | 'sending' | 'sent' | 'error';
 
-export default function ChatSidebar() {
-  const {
-    sidebarOpen,
-    chats,
-    setChats,
-    setActiveChat,
-    setMessages,
-    activeChat,
-  } = useChatStore();
+export default function ChatSidebar({
+  fullWidth = false,
+}: {
+  fullWidth?: boolean;
+}) {
+  const { sidebarOpen, chats, setChats, setActiveChat, activeChat } =
+    useChatStore();
   const { user } = useAuthStore();
 
   // ── Search state ──────────────────────────────────────────
@@ -53,15 +52,42 @@ export default function ChatSidebar() {
   const [requestStatus, setRequestStatus] = useState<RequestStatus>('idle');
   const [requestError, setRequestError] = useState('');
 
-  // Fetch chats on mount
+  // Fetch chats + groups in parallel on mount, merge into one list
   useEffect(() => {
-    api
-      .get('/chats')
-      .then((res) => {
-        const data = res.data;
-        setChats(Array.isArray(data) ? data : data ? [data] : []);
-      })
-      .catch(() => {});
+    Promise.all([
+      api.get('/chats').catch(() => ({ data: [] })),
+      api.get('/groups').catch(() => ({ data: [] })),
+    ]).then(([chatsRes, groupsRes]) => {
+      const dmChats = Array.isArray(chatsRes.data)
+        ? chatsRes.data
+        : chatsRes.data
+          ? [chatsRes.data]
+          : [];
+
+      const groups: Group[] = Array.isArray(groupsRes.data)
+        ? groupsRes.data
+        : groupsRes.data
+          ? [groupsRes.data]
+          : [];
+
+      // Build a map of chatId → group name for quick lookup
+      const groupNameMap = new Map<string, string>(
+        groups.map((g) => [g.chat, g.name]),
+      );
+
+      // Annotate group chats with their name
+      const annotated = dmChats.map((c) =>
+        groupNameMap.has(c._id) ? { ...c, name: groupNameMap.get(c._id) } : c,
+      );
+
+      // Also add any group chats not already in the DM list
+      const existingIds = new Set(dmChats.map((c: { _id: string }) => c._id));
+      // (GET /chats should already include group chats, but guard just in case)
+
+      setChats(
+        annotated.filter((c: { _id: string }) => existingIds.has(c._id)),
+      );
+    });
   }, [setChats]);
 
   // Debounced search
@@ -98,17 +124,11 @@ export default function ChatSidebar() {
     }
   };
 
-  const handleSelectChat = async (chatId: string) => {
+  const handleSelectChat = (chatId: string) => {
     const chat = chats.find((c) => c._id === chatId);
-    if (!chat) return;
+    if (!chat || activeChat?._id === chatId) return; // already active — no-op
     setActiveChat(chat);
-    try {
-      const res = await api.get(`/messages/${chatId}`);
-      const data = res.data;
-      setMessages(Array.isArray(data) ? data : data ? [data] : []);
-    } catch {
-      setMessages([]);
-    }
+    // ChatWindow owns the message fetch — no fetch here
   };
 
   // ── Friend request handlers ───────────────────────────────
@@ -141,16 +161,22 @@ export default function ChatSidebar() {
     }
   };
 
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
   const isSearching = query.trim().length > 0;
 
   return (
     <div
       className={cn(
         'flex flex-col h-full bg-white border-r border-gray-100 transition-all duration-300 overflow-hidden shrink-0',
-        sidebarOpen ? 'w-[300px]' : 'w-0',
+        fullWidth ? 'w-full' : sidebarOpen ? 'w-[300px]' : 'w-0',
       )}
     >
-      <div className="w-[300px] flex flex-col h-full">
+      <div
+        className={cn(
+          'flex flex-col h-full',
+          fullWidth ? 'w-full' : 'w-[300px]',
+        )}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <h1 className="text-base font-semibold text-gray-900">Chats</h1>
@@ -158,7 +184,11 @@ export default function ChatSidebar() {
             <button className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
               <MoreHorizontal className="w-4 h-4" />
             </button>
-            <button className="w-7 h-7 flex items-center justify-center bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors">
+            <button
+              onClick={() => setGroupModalOpen(true)}
+              title="New group"
+              className="w-7 h-7 flex items-center justify-center bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+            >
               <Plus className="w-4 h-4" />
             </button>
           </div>
@@ -314,7 +344,7 @@ export default function ChatSidebar() {
               {chats.map((chat) => {
                 const partner = chat.users.find((u) => u._id !== user?._id);
                 const displayName = chat.isGroup
-                  ? 'Group'
+                  ? (chat.name ?? 'Group')
                   : (partner?.username ?? 'Unknown');
                 const initials = displayName.slice(0, 2).toUpperCase();
                 const isActive = activeChat?._id === chat._id;
@@ -452,6 +482,12 @@ export default function ChatSidebar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Create Group modal ────────────────────────────── */}
+      <CreateGroupModal
+        open={groupModalOpen}
+        onClose={() => setGroupModalOpen(false)}
+      />
     </div>
   );
 }

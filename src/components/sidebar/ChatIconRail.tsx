@@ -8,50 +8,26 @@ import {
   Star,
   AlignJustify,
   Bell,
-  LogOut,
-  UserCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import NotificationPanel from './NotificationPanel';
 import FriendsPanel from './FriendsPanel';
 import ProfilePanel from '@/components/profile/ProfilePanel';
-import api from '@/lib/axios';
-import { disconnectSocket } from '@/lib/socket';
-import { useChatStore } from '@/store/chatStore';
 
 type ActivePanel = 'notifications' | 'friends' | null;
 
 export default function ChatIconRail() {
-  const { user, logout } = useAuthStore();
-  const { clearActiveChat } = useChatStore();
-  const router = useRouter();
+  const { user } = useAuthStore();
   const initials = user?.username?.slice(0, 2).toUpperCase() ?? 'U';
 
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [notifCount, setNotifCount] = useState(0);
-  const [showLogoutMenu, setShowLogoutMenu] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
   const toggle = (panel: ActivePanel) =>
     setActivePanel((prev) => (prev === panel ? null : panel));
-
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      await api.post('/auth/logout');
-    } catch {
-      // proceed regardless — clear local state
-    } finally {
-      disconnectSocket();
-      logout();
-      clearActiveChat();
-      router.replace('/login');
-    }
-  };
 
   return (
     <>
@@ -116,71 +92,31 @@ export default function ChatIconRail() {
           </button>
         </nav>
 
-        {/* Bottom: hamburger + avatar with logout menu */}
+        {/* Bottom: hamburger + avatar */}
         <div className="flex flex-col items-center gap-2 mt-auto">
           <button className="w-full h-9 flex items-center justify-center text-gray-400 hover:text-gray-600">
             <AlignJustify className="w-[18px] h-[18px]" />
           </button>
 
-          {/* Avatar — click to toggle logout menu */}
-          <div className="relative">
-            <button
-              onClick={() => setShowLogoutMenu((v) => !v)}
-              title="Account"
-              className="relative focus:outline-none"
-            >
-              {user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt={user.username}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold">
-                  {initials}
-                </div>
-              )}
-              <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 border-2 border-white rounded-full" />
-            </button>
-
-            {/* Logout popup */}
-            {showLogoutMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-50"
-                  onClick={() => setShowLogoutMenu(false)}
-                />
-                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 bg-white rounded-xl shadow-lg border border-gray-100 py-1 min-w-[130px]">
-                  <div className="px-3 py-1.5 border-b border-gray-50">
-                    <p className="text-xs font-semibold text-gray-900 truncate">
-                      {user?.username}
-                    </p>
-                    <p className="text-[10px] text-gray-400 truncate">
-                      {user?.email}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setShowLogoutMenu(false);
-                      setProfileOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors"
-                  >
-                    <UserCircle className="w-3.5 h-3.5" />
-                    View Profile
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    disabled={loggingOut}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    {loggingOut ? 'Signing out…' : 'Sign out'}
-                  </button>
-                </div>
-              </>
+          {/* Avatar — click to open profile */}
+          <button
+            onClick={() => setProfileOpen(true)}
+            title="My Profile"
+            className="relative focus:outline-none"
+          >
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user.username}
+                className="w-8 h-8 rounded-full object-cover hover:opacity-80 transition-opacity"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold hover:opacity-80 transition-opacity">
+                {initials}
+              </div>
             )}
-          </div>
+            <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 border-2 border-white rounded-full" />
+          </button>
         </div>
       </div>
 

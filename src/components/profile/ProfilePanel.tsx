@@ -14,11 +14,15 @@ import {
   Camera,
   Check,
   AlertCircle,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/axios';
 import { User } from '@/types';
 import { useAuthStore } from '@/store/authStore';
+import { disconnectSocket } from '@/lib/socket';
+import { useChatStore } from '@/store/chatStore';
+import { useRouter } from 'next/navigation';
 
 interface ProfilePanelProps {
   open: boolean;
@@ -28,12 +32,15 @@ interface ProfilePanelProps {
 type Mode = 'view' | 'edit';
 
 export default function ProfilePanel({ open, onClose }: ProfilePanelProps) {
-  const { setUser } = useAuthStore();
+  const { setUser, logout } = useAuthStore();
+  const { clearActiveChat } = useChatStore();
+  const router = useRouter();
 
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState('');
   const [mode, setMode] = useState<Mode>('view');
+  const [loggingOut, setLoggingOut] = useState(false);
 
   // Edit form state
   const [username, setUsername] = useState('');
@@ -45,6 +52,20 @@ export default function ProfilePanel({ open, onClose }: ProfilePanelProps) {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // proceed regardless
+    } finally {
+      disconnectSocket();
+      logout();
+      clearActiveChat();
+      router.replace('/login');
+    }
+  };
 
   // Fetch profile when panel opens
   useEffect(() => {
@@ -298,10 +319,26 @@ export default function ProfilePanel({ open, onClose }: ProfilePanelProps) {
                 )}
               </div>
 
-              <div className="px-5 pb-6">
+              <div className="px-5 pb-4">
                 <p className="text-[10px] text-gray-300 break-all font-mono">
                   ID: {profile._id}
                 </p>
+              </div>
+
+              {/* Sign out */}
+              <div className="px-4 pb-6 border-t border-gray-50 pt-3">
+                <button
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-red-500 bg-red-50 hover:bg-red-100 disabled:opacity-50 transition-colors"
+                >
+                  {loggingOut ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <LogOut className="w-4 h-4" />
+                  )}
+                  {loggingOut ? 'Signing out…' : 'Sign out'}
+                </button>
               </div>
             </>
           )}

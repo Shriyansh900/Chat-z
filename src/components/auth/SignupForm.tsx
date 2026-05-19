@@ -10,6 +10,9 @@ import axios from 'axios';
 import { BASE_URL } from '@/lib/axios';
 import { connectSocket } from '@/lib/socket';
 import { Eye, EyeOff, Camera } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+const OTP_LENGTH = 4;
 
 export default function SignupForm() {
   const router = useRouter();
@@ -26,24 +29,63 @@ export default function SignupForm() {
   // OTP step
   const [step, setStep] = useState<'form' | 'otp'>('form');
   const [pendingEmail, setPendingEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [otpError, setOtpError] = useState('');
+  const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [otpLoading, setOtpLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const [resendMsg, setResendMsg] = useState('');
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const otp = digits.join('');
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     setError,
-  } = useForm<SignupInput>({ resolver: zodResolver(signupSchema) });
+  } = useForm<SignupInput>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: { username: '', email: '', password: '' },
+  });
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     setAvatarFile(file);
     setAvatarPreview(file ? URL.createObjectURL(file) : null);
     e.target.value = '';
+  };
+
+  // ── OTP box handlers ──────────────────────────────────────
+  const handleDigitChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const next = [...digits];
+    next[index] = digit;
+    setDigits(next);
+    if (digit && index < OTP_LENGTH - 1) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleDigitKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === 'Backspace' && !digits[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleDigitPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData
+      .getData('text')
+      .replace(/\D/g, '')
+      .slice(0, OTP_LENGTH);
+    const next = Array(OTP_LENGTH).fill('');
+    pasted.split('').forEach((ch, i) => {
+      next[i] = ch;
+    });
+    setDigits(next);
+    const focusIdx = Math.min(pasted.length, OTP_LENGTH - 1);
+    inputRefs.current[focusIdx]?.focus();
   };
 
   // Step 1 — send multipart signup
@@ -54,55 +96,65 @@ export default function SignupForm() {
     form.append('password', data.password);
     if (avatarFile) form.append('avatar', avatarFile);
 
+    const toastId = toast.loading('Creating account…');
     try {
-      await axios.post(`${BASE_URL}/auth/signup`, form, {
+      const res = await axios.post(`${BASE_URL}/auth/signup`, form, {
         withCredentials: true,
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      toast.dismiss(toastId);
+      const otpFromApi = res.data?.otp;
+      if (otpFromApi) {
+        toast.success(`Your OTP is: ${otpFromApi}`, { duration: 15000 });
+      } else {
+        toast.success('OTP sent!');
+      }
       setPendingEmail(data.email);
       setStep('otp');
+      setTimeout(() => inputRefs.current[0]?.focus(), 50);
     } catch (err) {
+      toast.dismiss(toastId);
       if (!axios.isAxiosError(err)) {
+        toast.error('An unexpected error occurred.');
         setError('root', { message: 'An unexpected error occurred.' });
         return;
       }
       const status = err.response?.status;
-      if (status === 503) {
-        setError('root', {
-          message: 'Failed to send OTP email. Please try again.',
-        });
-      } else {
-        setError('root', {
-          message:
-            err.response?.data?.message ?? 'Signup failed. Please try again.',
-        });
-      }
+      const msg =
+        status === 503
+          ? 'Failed to send OTP. Please try again.'
+          : (err.response?.data?.message ?? 'Signup failed. Please try again.');
+      toast.error(msg);
+      setError('root', { message: msg });
     }
   };
 
   // Step 2 — verify OTP
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.trim().length < 4) {
-      setOtpError('Enter the OTP sent to your email.');
+    if (otp.length < OTP_LENGTH) {
+      toast.error(`Enter the ${OTP_LENGTH}-digit OTP.`);
       return;
     }
     setOtpLoading(true);
-    setOtpError('');
+    const toastId = toast.loading('Verifying OTP…');
     try {
       const res = await axios.post(
         `${BASE_URL}/auth/verify-signup`,
-        { email: pendingEmail, otp: otp.trim() },
+        { email: pendingEmail, otp },
         { withCredentials: true },
       );
+      toast.dismiss(toastId);
+      toast.success('Account created! Welcome 🎉');
       setAuth(res.data.user, res.data.accessToken);
       connectSocket(res.data.user._id);
       router.push('/chat');
     } catch (err) {
+      toast.dismiss(toastId);
       const message = axios.isAxiosError(err)
         ? (err.response?.data?.message ?? 'Invalid OTP. Please try again.')
         : 'An unexpected error occurred.';
-      setOtpError(message);
+      toast.error(message);
     } finally {
       setOtpLoading(false);
     }
@@ -111,35 +163,40 @@ export default function SignupForm() {
   // Resend OTP
   const handleResend = async () => {
     setResendLoading(true);
-    setResendMsg('');
-    setOtpError('');
+    const toastId = toast.loading('Resending OTP…');
     try {
-      await axios.post(
+      const res = await axios.post(
         `${BASE_URL}/auth/resend-otp`,
         { email: pendingEmail, purpose: 'signup' },
         { withCredentials: true },
       );
-      setResendMsg('A new OTP has been sent to your email.');
+      toast.dismiss(toastId);
+      const otpFromApi = res.data?.otp;
+      if (otpFromApi) {
+        toast.success(`New OTP: ${otpFromApi}`, { duration: 15000 });
+      } else {
+        toast.success('New OTP sent!');
+      }
+      setDigits(Array(OTP_LENGTH).fill(''));
+      setTimeout(() => inputRefs.current[0]?.focus(), 50);
     } catch (err) {
+      toast.dismiss(toastId);
       if (!axios.isAxiosError(err)) {
-        setOtpError('An unexpected error occurred.');
+        toast.error('An unexpected error occurred.');
         setResendLoading(false);
         return;
       }
       const status = err.response?.status;
       if (status === 404) {
-        // Pending signup record expired — send user back to start
-        setOtpError('Session expired. Please sign up again.');
+        toast.error('Session expired. Please sign up again.');
         setTimeout(() => {
           setStep('form');
-          setOtp('');
-          setOtpError('');
-          setResendMsg('');
+          setDigits(Array(OTP_LENGTH).fill(''));
         }, 1500);
       } else if (status === 503) {
-        setOtpError('Failed to send OTP email. Please try again.');
+        toast.error('Failed to send OTP. Please try again.');
       } else {
-        setOtpError(err.response?.data?.message ?? 'Failed to resend OTP.');
+        toast.error(err.response?.data?.message ?? 'Failed to resend OTP.');
       }
     } finally {
       setResendLoading(false);
@@ -150,38 +207,35 @@ export default function SignupForm() {
   if (step === 'otp') {
     return (
       <form onSubmit={handleVerifyOtp} noValidate>
-        <h2 className="text-3xl font-bold mb-2">Verify your email</h2>
-        <p className="text-sm text-gray-400 mb-6">
-          We sent a 6-digit code to{' '}
-          <span className="text-white font-medium">{pendingEmail}</span>. Enter
-          it below to complete signup.
+        <h2 className="text-3xl font-bold mb-2">Enter your OTP</h2>
+        <p className="text-sm text-gray-400 mb-8">
+          A {OTP_LENGTH}-digit code was sent for{' '}
+          <span className="text-white font-medium">{pendingEmail}</span>.
         </p>
 
-        {otpError && <p className="text-red-400 text-sm mb-4">{otpError}</p>}
-        {resendMsg && (
-          <p className="text-green-400 text-sm mb-4">{resendMsg}</p>
-        )}
-
-        <div className="mb-6">
-          <input
-            type="text"
-            inputMode="numeric"
-            maxLength={6}
-            value={otp}
-            onChange={(e) => {
-              setOtp(e.target.value.replace(/\D/g, ''));
-              setOtpError('');
-              setResendMsg('');
-            }}
-            placeholder="123456"
-            className="w-full bg-[#2a2640] p-3 rounded-lg text-center text-2xl tracking-[0.5em] font-mono"
-            autoFocus
-          />
+        {/* 4-box OTP input */}
+        <div className="flex items-center justify-center gap-3 mb-8">
+          {digits.map((d, i) => (
+            <input
+              key={i}
+              ref={(el) => {
+                inputRefs.current[i] = el;
+              }}
+              type="text"
+              inputMode="numeric"
+              maxLength={1}
+              value={d}
+              onChange={(e) => handleDigitChange(i, e.target.value)}
+              onKeyDown={(e) => handleDigitKeyDown(i, e)}
+              onPaste={i === 0 ? handleDigitPaste : undefined}
+              className="w-14 h-14 bg-[#2a2640] rounded-xl text-center text-2xl font-bold font-mono text-white border-2 border-transparent focus:border-purple-500 focus:outline-none transition-colors"
+            />
+          ))}
         </div>
 
         <button
           type="submit"
-          disabled={otpLoading}
+          disabled={otpLoading || otp.length < OTP_LENGTH}
           className="w-full bg-purple-600 hover:bg-purple-700 transition p-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed mb-3"
         >
           {otpLoading ? 'Verifying…' : 'Verify & Continue'}
@@ -192,9 +246,7 @@ export default function SignupForm() {
             type="button"
             onClick={() => {
               setStep('form');
-              setOtp('');
-              setOtpError('');
-              setResendMsg('');
+              setDigits(Array(OTP_LENGTH).fill(''));
             }}
             className="text-sm text-gray-400 hover:text-gray-200 transition"
           >
@@ -316,7 +368,7 @@ export default function SignupForm() {
         disabled={isSubmitting}
         className="w-full bg-purple-600 hover:bg-purple-700 transition p-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isSubmitting ? 'Sending OTP…' : 'Create account'}
+        {isSubmitting ? 'Creating account…' : 'Create account'}
       </button>
     </form>
   );

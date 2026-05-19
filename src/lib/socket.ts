@@ -23,7 +23,8 @@ export const connectSocket = (userId: string) => {
     s.emit('setup', userId);
   });
 
-  s.on('connected', () => {
+  // Use once — prevents duplicate listeners if connectSocket is called again
+  s.once('connected', () => {
     useSocketStore.getState().setConnected(true);
   });
 

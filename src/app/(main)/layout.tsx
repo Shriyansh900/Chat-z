@@ -21,16 +21,13 @@ export default function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, _hydrated, setAccessToken, logout } = useAuthStore();
+  const { user, _hydrated, setAccessToken, logout, accessToken } =
+    useAuthStore();
   const { activeChat, clearActiveChat } = useChatStore();
   const router = useRouter();
   const [bootstrapped, setBootstrapped] = useState(false);
   const isMobile = useMobile();
 
-  // Mobile panel state
-  const [mobilePanel, setMobilePanel] = useState<
-    'friends' | 'notifications' | null
-  >(null);
   const [notifCount, setNotifCount] = useState(0);
   // Mobile tab: 'chats' | 'friends' | 'notifications'
   const [mobileTab, setMobileTab] = useState<
@@ -77,7 +74,6 @@ export default function MainLayout({
     );
   }
 
-  const { accessToken } = useAuthStore.getState();
   if (!accessToken) return null;
 
   // ── Mobile layout ─────────────────────────────────────────

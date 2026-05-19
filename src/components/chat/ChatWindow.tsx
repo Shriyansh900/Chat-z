@@ -15,8 +15,7 @@ function getChatId(chat: Message['chat']): string {
 }
 
 export default function ChatWindow() {
-  const { messages, addMessage, setMessages, activeChat, deleteMessage } =
-    useChatStore();
+  const { messages, setMessages, activeChat, deleteMessage } = useChatStore();
   const { user } = useAuthStore();
   const [isTyping, setIsTyping] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -53,7 +52,7 @@ export default function ChatWindow() {
       });
   }, [activeChat?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Socket listeners — registered once, use refs for latest values ──
+  // ── Socket listeners — registered once, read store directly to avoid stale closures ──
   const activeChatIdForSocket = useRef<string | null>(null);
   const currentUserId = useRef<string | null>(null);
   activeChatIdForSocket.current = activeChat?._id ?? null;
@@ -70,7 +69,9 @@ export default function ChatWindow() {
       const msgChatId = getChatId(message.chat);
       if (msgChatId !== activeChatIdForSocket.current) return;
 
-      addMessage(message);
+      // Read from store directly to avoid stale closure
+      useChatStore.getState().addMessage(message);
+      useChatStore.getState().updateChatLastMessage(msgChatId, message);
     };
 
     const onTyping = () => setIsTyping(true);
@@ -86,6 +87,13 @@ export default function ChatWindow() {
       socket.off('stop_typing', onStopTyping);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset activeChatIdRef on unmount so re-mount always re-fetches
+  useEffect(() => {
+    return () => {
+      activeChatIdRef.current = null;
+    };
+  }, []);
 
   // ── Auto-scroll on new messages ──────────────────────────
   useEffect(() => {

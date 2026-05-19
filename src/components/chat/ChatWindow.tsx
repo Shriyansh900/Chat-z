@@ -15,7 +15,7 @@ function getChatId(chat: Message['chat']): string {
 }
 
 export default function ChatWindow() {
-  const { messages, setMessages, activeChat, deleteMessage } = useChatStore();
+  const { messages, setMessages, activeChat } = useChatStore();
   const { user } = useAuthStore();
   const [isTyping, setIsTyping] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -158,7 +158,6 @@ export default function ChatWindow() {
                     minute: '2-digit',
                   })}
                   isOwn={msg.sender._id === user?._id}
-                  onDelete={deleteMessage}
                 />
               ))}
             </div>

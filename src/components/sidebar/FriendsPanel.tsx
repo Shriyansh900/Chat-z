@@ -7,7 +7,6 @@ import {
   Loader2,
   MessageCircle,
   UserCircle2,
-  UserMinus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/axios';
@@ -29,7 +28,6 @@ export default function FriendsPanel({
   const [friends, setFriends] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [dmLoading, setDmLoading] = useState<string | null>(null);
-  const [unfriendingId, setUnfriendingId] = useState<string | null>(null);
 
   const { chats, setChats, setActiveChat } = useChatStore();
 
@@ -66,18 +64,6 @@ export default function FriendsPanel({
       // silently fail
     } finally {
       setDmLoading(null);
-    }
-  };
-
-  const handleUnfriend = async (friendId: string) => {
-    setUnfriendingId(friendId);
-    try {
-      await api.delete(`/friends/${friendId}`);
-      setFriends((prev) => prev.filter((f) => f._id !== friendId));
-    } catch {
-      // silently fail
-    } finally {
-      setUnfriendingId(null);
     }
   };
 
@@ -277,20 +263,6 @@ export default function FriendsPanel({
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <MessageCircle className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-
-                  {/* Unfriend button */}
-                  <button
-                    onClick={() => handleUnfriend(friend._id)}
-                    disabled={unfriendingId === friend._id}
-                    title="Unfriend"
-                    className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:bg-red-100 disabled:opacity-50 transition-colors shrink-0"
-                  >
-                    {unfriendingId === friend._id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <UserMinus className="w-3.5 h-3.5" />
                     )}
                   </button>
                 </div>

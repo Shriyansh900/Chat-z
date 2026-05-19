@@ -81,19 +81,31 @@ export default function ChatInput() {
     isTypingRef.current = false;
     getSocket().emit('stop_typing', activeChat._id);
 
-    // Build multipart/form-data — required by the API
-    const form = new FormData();
-    form.append('chatId', activeChat._id);
-    if (trimmed) form.append('content', trimmed);
-    if (capturedFile) form.append('file', capturedFile);
-
     try {
-      const res = await api.post('/messages', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      let res;
+      if (capturedFile) {
+        // File message — multipart/form-data
+        const form = new FormData();
+        form.append('chatId', activeChat._id);
+        if (trimmed) {
+          form.append('content', trimmed);
+          form.append('senderContent', trimmed);
+        }
+        form.append('file', capturedFile);
+        res = await api.post('/messages', form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      } else {
+        // Text-only message — JSON with senderContent (E2E API shape)
+        res = await api.post('/messages', {
+          chatId: activeChat._id,
+          content: trimmed,
+          senderContent: trimmed,
+        });
+      }
       addMessage(res.data);
       useChatStore.getState().updateChatLastMessage(activeChat._id, res.data);
-      // Broadcast to room — include chatId so backend can route correctly
+      // Broadcast to room
       getSocket().emit('send_message', { ...res.data, chatId: activeChat._id });
     } catch {
       // Restore on failure using captured values

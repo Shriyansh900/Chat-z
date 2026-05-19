@@ -1,7 +1,7 @@
 'use client';
 
 import { Paperclip, Smile, Mic, Heading, X, FileText } from 'lucide-react';
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { getSocket } from '@/lib/socket';
 import { useChatStore } from '@/store/chatStore';
@@ -26,6 +26,13 @@ export default function ChatInput() {
 
   const { activeChat, addMessage } = useChatStore();
   const { user } = useAuthStore();
+
+  // Clear typing timer on unmount to prevent emitting on a dead socket
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, []);
 
   // ── Typing indicator ──────────────────────────────────────
   const emitTyping = useCallback(() => {
@@ -62,6 +69,9 @@ export default function ChatInput() {
     const trimmed = value.trim();
     if ((!trimmed && !attachedFile) || !activeChat || !user) return;
 
+    // Capture before clearing — prevents stale restore in catch
+    const capturedFile = attachedFile;
+
     setSending(true);
     setValue('');
     setAttachedFile(null);
@@ -75,19 +85,20 @@ export default function ChatInput() {
     const form = new FormData();
     form.append('chatId', activeChat._id);
     if (trimmed) form.append('content', trimmed);
-    if (attachedFile) form.append('file', attachedFile);
+    if (capturedFile) form.append('file', capturedFile);
 
     try {
       const res = await api.post('/messages', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       addMessage(res.data);
+      useChatStore.getState().updateChatLastMessage(activeChat._id, res.data);
       // Broadcast to room — include chatId so backend can route correctly
       getSocket().emit('send_message', { ...res.data, chatId: activeChat._id });
     } catch {
-      // Restore on failure
+      // Restore on failure using captured values
       setValue(trimmed);
-      setAttachedFile(attachedFile);
+      setAttachedFile(capturedFile);
     } finally {
       setSending(false);
       inputRef.current?.focus();

@@ -13,6 +13,7 @@ interface ChatState {
   setMessages: (messages: Message[]) => void;
   addMessage: (message: Message) => void;
   deleteMessage: (messageId: string) => void;
+  updateChatLastMessage: (chatId: string, message: Message) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
 }
@@ -38,6 +39,14 @@ export const useChatStore = create<ChatState>((set) => ({
   deleteMessage: (messageId: string) =>
     set((state) => ({
       messages: state.messages.filter((m) => m._id !== messageId),
+    })),
+  updateChatLastMessage: (chatId: string, message: Message) =>
+    set((state) => ({
+      chats: state.chats.map((c) =>
+        c._id === chatId
+          ? { ...c, lastMessage: message, updatedAt: message.createdAt }
+          : c,
+      ),
     })),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),

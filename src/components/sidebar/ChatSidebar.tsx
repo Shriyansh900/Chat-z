@@ -348,10 +348,7 @@ export default function ChatSidebar({
                   : (partner?.username ?? 'Unknown');
                 const initials = displayName.slice(0, 2).toUpperCase();
                 const isActive = activeChat?._id === chat._id;
-                const lastMsg =
-                  chat.lastMessage?.senderContent ??
-                  chat.lastMessage?.content ??
-                  '';
+                const lastMsg = chat.lastMessage?.content ?? '';
                 const lastTime = chat.updatedAt
                   ? new Date(chat.updatedAt).toLocaleDateString('en-US', {
                       month: 'short',

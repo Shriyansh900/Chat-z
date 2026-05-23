@@ -114,8 +114,8 @@ export default function ChatInput() {
       useChatStore
         .getState()
         .updateChatLastMessage(activeChat._id, displayMessage);
-      // Broadcast to room
-      getSocket().emit('send_message', { ...res.data, chatId: activeChat._id });
+      // Backend broadcasts receive_message to the room after saving —
+      // no need to emit send_message from the client
     } catch {
       // Restore on failure using captured values
       setValue(trimmed);

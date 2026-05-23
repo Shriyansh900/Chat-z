@@ -87,35 +87,20 @@ export default function ChatInput() {
         // File message — multipart/form-data
         const form = new FormData();
         form.append('chatId', activeChat._id);
-        if (trimmed) {
-          form.append('content', trimmed);
-          form.append('senderContent', trimmed);
-        }
+        if (trimmed) form.append('content', trimmed);
         form.append('file', capturedFile);
         res = await api.post('/messages', form, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
-        // Text-only message — JSON with senderContent (E2E API shape)
+        // Text-only message — plain JSON
         res = await api.post('/messages', {
           chatId: activeChat._id,
           content: trimmed,
-          senderContent: trimmed,
         });
       }
-      // Patch the message with the plain-text content so the bubble
-      // always shows readable text regardless of what the API echoes back
-      const displayMessage = {
-        ...res.data,
-        senderContent: trimmed || res.data.senderContent,
-        content: trimmed || res.data.content,
-      };
-      addMessage(displayMessage);
-      useChatStore
-        .getState()
-        .updateChatLastMessage(activeChat._id, displayMessage);
-      // Backend broadcasts receive_message to the room after saving —
-      // no need to emit send_message from the client
+      addMessage(res.data);
+      useChatStore.getState().updateChatLastMessage(activeChat._id, res.data);
     } catch {
       // Restore on failure using captured values
       setValue(trimmed);

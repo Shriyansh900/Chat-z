@@ -1,5 +1,9 @@
+'use client';
+
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { FileText } from 'lucide-react';
+import { FileText, Trash2, Loader2 } from 'lucide-react';
+import api from '@/lib/axios';
 
 interface MessageBubbleProps {
   messageId: string;
@@ -8,20 +12,62 @@ interface MessageBubbleProps {
   isOwn: boolean;
   deleted?: boolean;
   file?: string;
-  onDelete?: (messageId: string) => void; // kept for API compat, no longer used
+  onDelete: (messageId: string) => void;
 }
 
 export default function MessageBubble({
+  messageId,
   content,
   time,
   isOwn,
   deleted,
   file,
+  onDelete,
 }: MessageBubbleProps) {
   const isImageFile = file && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file);
+  const [hovered, setHovered] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await api.delete(`/messages/${messageId}`);
+      onDelete(messageId);
+    } catch {
+      // silently fail — message stays visible
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
-    <div className={cn('flex', isOwn ? 'justify-end' : 'justify-start')}>
+    <div
+      className={cn(
+        'flex items-end gap-1.5 group',
+        isOwn ? 'justify-end' : 'justify-start',
+      )}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Delete button — own messages only, shown on hover */}
+      {isOwn && !deleted && (
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          title="Delete message"
+          className={cn(
+            'w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-50 shrink-0 mb-1',
+            hovered ? 'opacity-100' : 'opacity-0 pointer-events-none',
+          )}
+        >
+          {deleting ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Trash2 className="w-3.5 h-3.5" />
+          )}
+        </button>
+      )}
+
       <div
         className={cn(
           'flex flex-col gap-1 px-3 py-2 rounded-2xl max-w-[85vw] sm:max-w-sm text-sm',

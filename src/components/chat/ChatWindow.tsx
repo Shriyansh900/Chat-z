@@ -15,7 +15,7 @@ function getChatId(chat: Message['chat']): string {
 }
 
 export default function ChatWindow() {
-  const { messages, setMessages, activeChat } = useChatStore();
+  const { messages, setMessages, activeChat, deleteMessage } = useChatStore();
   const { user } = useAuthStore();
   const [isTyping, setIsTyping] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -147,19 +147,28 @@ export default function ChatWindow() {
               </span>
             </div>
             <div className="flex flex-col gap-1">
-              {msgs.map((msg) => (
-                <MessageBubble
-                  key={msg._id}
-                  messageId={msg._id}
-                  content={msg.content}
-                  file={msg.file}
-                  time={new Date(msg.createdAt).toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                  isOwn={msg.sender._id === user?._id}
-                />
-              ))}
+              {msgs.map((msg) => {
+                const isOwn = msg.sender._id === user?._id;
+                // Use senderContent for own messages (readable copy),
+                // content for received messages
+                const displayContent = isOwn
+                  ? (msg.senderContent ?? msg.content)
+                  : msg.content;
+                return (
+                  <MessageBubble
+                    key={msg._id}
+                    messageId={msg._id}
+                    content={displayContent}
+                    file={msg.file}
+                    time={new Date(msg.createdAt).toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                    isOwn={isOwn}
+                    onDelete={deleteMessage}
+                  />
+                );
+              })}
             </div>
           </div>
         ))}

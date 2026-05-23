@@ -13,7 +13,8 @@ export interface Message {
   _id: string;
   sender: Pick<User, '_id' | 'username' | 'avatar'>;
   chat: string | { _id: string }; // string ID or populated object
-  content: string;
+  content: string; // recipient's copy (may be encrypted)
+  senderContent?: string; // sender's own readable copy
   file?: string;
   createdAt: string;
 }

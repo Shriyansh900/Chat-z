@@ -32,8 +32,15 @@ export default function ChatWindow() {
     setMessages([]);
     setLoadingMessages(true);
 
-    // Join the socket room so we receive messages for this chat
-    getSocket().emit('join_chat', activeChat._id);
+    const socket = getSocket();
+
+    // Join the socket room — wait for connection if not yet connected
+    const joinRoom = () => socket.emit('join_chat', activeChat._id);
+    if (socket.connected) {
+      joinRoom();
+    } else {
+      socket.once('connect', joinRoom);
+    }
 
     api
       .get(`/messages/${activeChat._id}`)
@@ -49,6 +56,11 @@ export default function ChatWindow() {
         if (activeChatIdRef.current === activeChat._id)
           setLoadingMessages(false);
       });
+
+    return () => {
+      // Clean up the pending connect listener if chat changes before connect
+      socket.off('connect', joinRoom);
+    };
   }, [activeChat?._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Socket listeners — registered once, read store directly to avoid stale closures ──
@@ -78,14 +90,23 @@ export default function ChatWindow() {
     const onTyping = () => setIsTyping(true);
     const onStopTyping = () => setIsTyping(false);
 
+    // Re-join the active room after a reconnect (socket dropped and came back)
+    const onReconnect = () => {
+      if (activeChatIdForSocket.current) {
+        socket.emit('join_chat', activeChatIdForSocket.current);
+      }
+    };
+
     socket.on('receive_message', onMessage);
     socket.on('typing', onTyping);
     socket.on('stop_typing', onStopTyping);
+    socket.on('connect', onReconnect); // fires on every (re)connect
 
     return () => {
       socket.off('receive_message', onMessage);
       socket.off('typing', onTyping);
       socket.off('stop_typing', onStopTyping);
+      socket.off('connect', onReconnect);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

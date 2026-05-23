@@ -9,7 +9,6 @@ import {
   Mail,
   User as UserIcon,
   FileText,
-  Key,
   Pencil,
   Camera,
   Check,
@@ -302,21 +301,6 @@ export default function ProfilePanel({ open, onClose }: ProfilePanelProps) {
                     </p>
                   </div>
                 </div>
-
-                {/* E2E key */}
-                {profile.publicKey && (
-                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gray-50">
-                    <span className="text-gray-400 shrink-0">
-                      <Key className="w-4 h-4" />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-gray-400">Encryption</p>
-                      <p className="text-sm font-medium text-green-600">
-                        E2E key registered
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="px-5 pb-4">

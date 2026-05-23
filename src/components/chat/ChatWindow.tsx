@@ -27,7 +27,6 @@ export default function ChatWindow() {
   // ── Fetch messages + join socket room when active chat changes ──
   useEffect(() => {
     if (!activeChat) return;
-    if (activeChatIdRef.current === activeChat._id) return; // already loaded
 
     activeChatIdRef.current = activeChat._id;
     setMessages([]);
@@ -65,13 +64,15 @@ export default function ChatWindow() {
       // Skip own messages — sender already added via addMessage() in ChatInput
       if (message.sender._id === currentUserId.current) return;
 
-      // Skip messages not belonging to the active chat
       const msgChatId = getChatId(message.chat);
+
+      // Always update the sidebar last-message preview regardless of active chat
+      useChatStore.getState().updateChatLastMessage(msgChatId, message);
+
+      // Only add to the message list if this chat is currently open
       if (msgChatId !== activeChatIdForSocket.current) return;
 
-      // Read from store directly to avoid stale closure
       useChatStore.getState().addMessage(message);
-      useChatStore.getState().updateChatLastMessage(msgChatId, message);
     };
 
     const onTyping = () => setIsTyping(true);

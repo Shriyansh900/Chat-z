@@ -103,8 +103,17 @@ export default function ChatInput() {
           senderContent: trimmed,
         });
       }
-      addMessage(res.data);
-      useChatStore.getState().updateChatLastMessage(activeChat._id, res.data);
+      // Patch the message with the plain-text content so the bubble
+      // always shows readable text regardless of what the API echoes back
+      const displayMessage = {
+        ...res.data,
+        senderContent: trimmed || res.data.senderContent,
+        content: trimmed || res.data.content,
+      };
+      addMessage(displayMessage);
+      useChatStore
+        .getState()
+        .updateChatLastMessage(activeChat._id, displayMessage);
       // Broadcast to room
       getSocket().emit('send_message', { ...res.data, chatId: activeChat._id });
     } catch {

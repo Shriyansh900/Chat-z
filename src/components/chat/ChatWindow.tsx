@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
+import { useSocketStore } from '@/store/socketStore';
 import { getSocket } from '@/lib/socket';
 import { Message } from '@/types';
 import { Loader2 } from 'lucide-react';
@@ -71,6 +72,7 @@ export default function ChatWindow() {
 
   useEffect(() => {
     const socket = getSocket();
+    const { setUserOnline, setUserOffline } = useSocketStore.getState();
 
     const onMessage = (message: Message) => {
       // Skip own messages — sender already added via addMessage() in ChatInput
@@ -87,10 +89,31 @@ export default function ChatWindow() {
       useChatStore.getState().addMessage(message);
     };
 
-    const onTyping = () => setIsTyping(true);
-    const onStopTyping = () => setIsTyping(false);
+    // Server emits { messageId, chatId } when a message is deleted
+    const onMessageDeleted = ({
+      messageId,
+    }: {
+      messageId: string;
+      chatId: string;
+    }) => {
+      useChatStore.getState().deleteMessage(messageId);
+    };
 
-    // Re-join the active room after a reconnect (socket dropped and came back)
+    // Typing payload is now { chatId, userId }
+    const onTyping = ({ chatId }: { chatId: string; userId: string }) => {
+      if (chatId === activeChatIdForSocket.current) setIsTyping(true);
+    };
+    const onStopTyping = ({ chatId }: { chatId: string; userId: string }) => {
+      if (chatId === activeChatIdForSocket.current) setIsTyping(false);
+    };
+
+    // Presence events — friends only
+    const onUserOnline = ({ userId }: { userId: string }) =>
+      setUserOnline(userId);
+    const onUserOffline = ({ userId }: { userId: string }) =>
+      setUserOffline(userId);
+
+    // Re-join the active room after a reconnect
     const onReconnect = () => {
       if (activeChatIdForSocket.current) {
         socket.emit('join_chat', activeChatIdForSocket.current);
@@ -98,14 +121,20 @@ export default function ChatWindow() {
     };
 
     socket.on('receive_message', onMessage);
+    socket.on('message_deleted', onMessageDeleted);
     socket.on('typing', onTyping);
     socket.on('stop_typing', onStopTyping);
-    socket.on('connect', onReconnect); // fires on every (re)connect
+    socket.on('user_online', onUserOnline);
+    socket.on('user_offline', onUserOffline);
+    socket.on('connect', onReconnect);
 
     return () => {
       socket.off('receive_message', onMessage);
+      socket.off('message_deleted', onMessageDeleted);
       socket.off('typing', onTyping);
       socket.off('stop_typing', onStopTyping);
+      socket.off('user_online', onUserOnline);
+      socket.off('user_offline', onUserOffline);
       socket.off('connect', onReconnect);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

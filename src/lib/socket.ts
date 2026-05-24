@@ -1,36 +1,29 @@
 import { io, Socket } from 'socket.io-client';
 import { useSocketStore } from '@/store/socketStore';
+import { useAuthStore } from '@/store/authStore';
 
 let socket: Socket | null = null;
 
 export const getSocket = (): Socket => {
   if (!socket) {
+    // Auth is passed via the `auth` option — server validates JWT on connection
+    const token = useAuthStore.getState().accessToken ?? '';
     socket = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
       withCredentials: true,
       autoConnect: false,
-      // Allow polling fallback — required for Render and other proxied hosts
-      // that don't support direct WebSocket upgrades on free tier
+      // Allow polling fallback for proxied hosts (e.g. Render free tier)
       transports: ['websocket', 'polling'],
+      auth: { token },
     });
   }
   return socket;
 };
 
-export const connectSocket = (userId: string) => {
+export const connectSocket = () => {
   const s = getSocket();
+  if (s.connected) return;
 
-  // If already connected just re-emit setup (e.g. after token refresh)
-  if (s.connected) {
-    s.emit('setup', userId);
-    return;
-  }
-
-  // Register connect handler — fires once per connection attempt
-  s.once('connect', () => {
-    s.emit('setup', userId);
-  });
-
-  // Backend emits 'connected' after processing 'setup'
+  // Server fires 'connected' after successful JWT auth
   s.on('connected', () => {
     useSocketStore.getState().setConnected(true);
   });
@@ -38,9 +31,21 @@ export const connectSocket = (userId: string) => {
   s.connect();
 };
 
+/**
+ * Call this when the access token is refreshed so the socket
+ * reconnects with the new token.
+ */
+export const reconnectSocketWithToken = (token: string) => {
+  if (!socket) return;
+  socket.auth = { token };
+  if (!socket.connected) {
+    socket.connect();
+  }
+};
+
 export const disconnectSocket = () => {
   if (!socket) return;
-  socket.off('connected'); // clean up persistent listener
+  socket.off('connected');
   socket.disconnect();
   useSocketStore.getState().setConnected(false);
   socket = null;

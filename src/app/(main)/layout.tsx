@@ -60,7 +60,7 @@ export default function MainLayout({
 
   useEffect(() => {
     const { accessToken } = useAuthStore.getState();
-    if (accessToken && user) connectSocket(user._id);
+    if (accessToken && user) connectSocket();
     return () => {
       disconnectSocket();
     };

@@ -147,7 +147,7 @@ export default function SignupForm() {
       toast.dismiss(toastId);
       toast.success('Account created! Welcome 🎉');
       setAuth(res.data.user, res.data.accessToken);
-      connectSocket(res.data.user._id);
+      connectSocket();
       router.push('/chat');
     } catch (err) {
       toast.dismiss(toastId);

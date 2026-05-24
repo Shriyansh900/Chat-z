@@ -126,7 +126,7 @@ export default function LoginForm() {
       toast.dismiss(toastId);
       toast.success('Signed in successfully!');
       setAuth(res.data.user, res.data.accessToken);
-      connectSocket(res.data.user._id);
+      connectSocket();
       router.push('/chat');
     } catch (err) {
       toast.dismiss(toastId);

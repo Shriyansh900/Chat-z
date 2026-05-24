@@ -1,5 +1,12 @@
 import axios, { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/store/authStore';
+// Lazy import to avoid circular dependency — socket imports axios
+let _reconnectSocketWithToken: ((token: string) => void) | null = null;
+if (typeof window !== 'undefined') {
+  import('./socket').then((m) => {
+    _reconnectSocketWithToken = m.reconnectSocketWithToken;
+  });
+}
 
 export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
@@ -78,6 +85,8 @@ api.interceptors.response.use(
 
       const newToken = data.accessToken;
       useAuthStore.getState().setAccessToken(newToken);
+      // Update socket auth token so next reconnect uses the fresh token
+      _reconnectSocketWithToken?.(newToken);
       processQueue(null, newToken);
 
       original.headers = {

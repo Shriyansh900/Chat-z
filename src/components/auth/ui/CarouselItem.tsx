@@ -3,20 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, PanInfo, useMotionValue, useTransform } from 'framer-motion';
 import React, { JSX } from 'react';
+import { Shield, Zap, Users, Lock, MessageCircle } from 'lucide-react';
 
-// replace icons with your own if needed
-import {
-  FiCircle,
-  FiCode,
-  FiFileText,
-  FiLayers,
-  FiLayout,
-} from 'react-icons/fi';
 export interface CarouselItem {
   title: string;
   description: string;
   id: number;
   icon: React.ReactNode;
+  color: string;
 }
 
 export interface CarouselProps {
@@ -32,34 +26,43 @@ export interface CarouselProps {
 
 const DEFAULT_ITEMS: CarouselItem[] = [
   {
-    title: 'Text Animations',
-    description: 'Cool text animations for your projects.',
+    title: 'End-to-End Encrypted',
+    description:
+      'Every message is encrypted on your device. Only you and your recipient hold the keys.',
     id: 1,
-    icon: <FiFileText className="h-[16px] w-[16px] text-white" />,
+    icon: <Shield className="w-5 h-5 text-white" />,
+    color: 'from-[#5df8d8] to-[#6fd1d7]',
   },
   {
-    title: 'Animations',
-    description: 'Smooth animations for your projects.',
+    title: 'Real-Time Messaging',
+    description: 'Powered by Socket.IO for sub-50ms delivery. Instant, always.',
     id: 2,
-    icon: <FiCircle className="h-[16px] w-[16px] text-white" />,
+    icon: <Zap className="w-5 h-5 text-white" />,
+    color: 'from-[#6fd1d7] to-[#3b7597]',
   },
   {
-    title: 'Components',
-    description: 'Reusable components for your projects.',
+    title: 'Group Channels',
+    description:
+      'Create encrypted group chats for teams, friends, and communities.',
     id: 3,
-    icon: <FiLayers className="h-[16px] w-[16px] text-white" />,
+    icon: <Users className="w-5 h-5 text-white" />,
+    color: 'from-[#3b7597] to-[#093c5d]',
   },
   {
-    title: 'Backgrounds',
-    description: 'Beautiful backgrounds and patterns for your projects.',
+    title: 'Zero Knowledge',
+    description:
+      'We never store readable messages. Your privacy is guaranteed by design.',
     id: 4,
-    icon: <FiLayout className="h-[16px] w-[16px] text-white" />,
+    icon: <Lock className="w-5 h-5 text-white" />,
+    color: 'from-[#5df8d8] to-[#3b7597]',
   },
   {
-    title: 'Common UI',
-    description: 'Common UI components are coming soon!',
+    title: 'Rich Messaging',
+    description:
+      'Reactions, read receipts, typing indicators — everything you expect.',
     id: 5,
-    icon: <FiCode className="h-[16px] w-[16px] text-white" />,
+    icon: <MessageCircle className="w-5 h-5 text-white" />,
+    color: 'from-[#6fd1d7] to-[#5df8d8]',
   },
 ];
 
@@ -79,7 +82,7 @@ interface CarouselItemProps {
   transition: object;
 }
 
-function CarouselItem({
+function CarouselItemCard({
   item,
   index,
   itemWidth,
@@ -100,26 +103,72 @@ function CarouselItem({
   return (
     <motion.div
       key={`${item?.id ?? index}-${index}`}
-      className={`relative shrink-0 flex flex-col ${
+      className={`relative shrink-0 flex flex-col overflow-hidden cursor-grab active:cursor-grabbing ${
         round
-          ? 'items-center justify-center text-center bg-[#120F17] border-0'
-          : 'items-start justify-between bg-[#222] border border-[#222] rounded-[12px]'
-      } overflow-hidden cursor-grab active:cursor-grabbing`}
+          ? 'items-center justify-center text-center'
+          : 'items-start justify-between'
+      }`}
       style={{
         width: itemWidth,
         height: round ? itemWidth : cardHeight,
-        rotateY: rotateY,
-        ...(round && { borderRadius: '50%' }),
+        rotateY,
+        borderRadius: round ? '50%' : '16px',
+        background: 'rgba(9, 60, 93, 0.3)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(111, 209, 215, 0.15)',
       }}
       transition={transition}
     >
-      <div className={`${round ? 'p-0 m-0' : 'mb-4 p-5'}`}>
-        <h1 className="text-white text-2xl font-bold">Chat-z</h1>
+      {/* Gradient accent top bar */}
+      <div
+        className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${item.color}`}
+      />
+
+      {/* Ambient glow */}
+      <div
+        className={`absolute top-4 right-4 w-16 h-16 bg-gradient-to-br ${item.color} opacity-10 rounded-full blur-xl pointer-events-none`}
+      />
+
+      <div className="p-5 w-full">
+        {/* Logo */}
+        <div className="flex items-center gap-2 mb-5">
+          <div className="w-6 h-6 rounded-md bg-[#060d14] border border-[#6fd1d7]/30 flex items-center justify-center">
+            <Zap size={12} className="text-[#5df8d8]" />
+          </div>
+          <span className="text-white font-bold text-sm tracking-tight">
+            Nex
+            <span
+              style={{
+                background: 'linear-gradient(135deg, #5df8d8, #6fd1d7)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              Chat
+            </span>
+          </span>
+        </div>
+
+        {/* Icon */}
+        <div
+          className={`w-10 h-10 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center mb-4 shadow-lg`}
+        >
+          {item.icon}
+        </div>
+
+        <h3 className="text-white font-bold text-base mb-2 leading-tight">
+          {item.title}
+        </h3>
+        <p className="text-slate-400 text-xs leading-relaxed">
+          {item.description}
+        </p>
       </div>
-      <div className="p-5">
-        <div className="mb-1 font-black text-lg text-white">{item.title}</div>
-        <p className="text-sm text-white">{item.description}</p>
-      </div>
+
+      {/* Bottom accent */}
+      <div
+        className={`absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r ${item.color} opacity-20`}
+      />
     </motion.div>
   );
 }
@@ -137,6 +186,7 @@ export default function Carousel({
   const containerPadding = 16;
   const itemWidth = baseWidth - containerPadding * 2;
   const trackItemOffset = itemWidth + GAP;
+
   const itemsForRender = useMemo(() => {
     if (!loop) return items;
     if (items.length === 0) return [];
@@ -149,8 +199,8 @@ export default function Carousel({
   const [isJumping, setIsJumping] = useState<boolean>(false);
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
   const prevItemsLengthRef = useRef<number>(items.length);
-
   const containerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (pauseOnHover && containerRef.current) {
       const container = containerRef.current;
@@ -168,11 +218,9 @@ export default function Carousel({
   useEffect(() => {
     if (!autoplay || itemsForRender.length <= 1) return undefined;
     if (pauseOnHover && isHovered) return undefined;
-
     const timer = setInterval(() => {
       setPosition((prev) => Math.min(prev + 1, itemsForRender.length - 1));
     }, autoplayDelay);
-
     return () => clearInterval(timer);
   }, [autoplay, autoplayDelay, isHovered, pauseOnHover, itemsForRender.length]);
 
@@ -184,7 +232,6 @@ export default function Carousel({
     x.set(-startingPosition * trackItemOffset);
   }, [items.length, loop, trackItemOffset, x]);
 
-  // Derive a safe position without setState-in-effect
   const safePosition =
     !loop && position > itemsForRender.length - 1
       ? Math.max(0, itemsForRender.length - 1)
@@ -192,9 +239,7 @@ export default function Carousel({
 
   const effectiveTransition = isJumping ? { duration: 0 } : SPRING_OPTIONS;
 
-  const handleAnimationStart = () => {
-    setIsAnimating(true);
-  };
+  const handleAnimationStart = () => setIsAnimating(true);
 
   const handleAnimationComplete = () => {
     if (!loop || itemsForRender.length <= 1) {
@@ -202,7 +247,6 @@ export default function Carousel({
       return;
     }
     const lastCloneIndex = itemsForRender.length - 1;
-
     if (position === lastCloneIndex) {
       setIsJumping(true);
       const target = 1;
@@ -214,7 +258,6 @@ export default function Carousel({
       });
       return;
     }
-
     if (position === 0) {
       setIsJumping(true);
       const target = items.length;
@@ -226,7 +269,6 @@ export default function Carousel({
       });
       return;
     }
-
     setIsAnimating(false);
   };
 
@@ -241,9 +283,7 @@ export default function Carousel({
         : offset.x > DRAG_BUFFER || velocity.x > VELOCITY_THRESHOLD
           ? -1
           : 0;
-
     if (direction === 0) return;
-
     setPosition((prev) => {
       const next = prev + direction;
       const max = itemsForRender.length - 1;
@@ -270,16 +310,12 @@ export default function Carousel({
   return (
     <div
       ref={containerRef}
-      className={`relative overflow-hidden p-4 ${
-        round
-          ? 'rounded-full border border-white'
-          : 'rounded-[24px] border border-[#222]'
-      }`}
+      className="relative overflow-hidden p-4"
       style={{
         width: `${baseWidth}px`,
-        ...(round
-          ? { height: `${baseWidth}px` }
-          : { height: `${cardHeight + 32 + 40}px` }),
+        height: round ? `${baseWidth}px` : `${cardHeight + 32 + 40}px`,
+        borderRadius: round ? '50%' : '20px',
+        border: '1px solid rgba(111, 209, 215, 0.1)',
       }}
     >
       <motion.div
@@ -300,7 +336,7 @@ export default function Carousel({
         onAnimationComplete={handleAnimationComplete}
       >
         {itemsForRender.map((item, index) => (
-          <CarouselItem
+          <CarouselItemCard
             key={`${item?.id ?? index}-${index}`}
             item={item}
             index={index}
@@ -313,27 +349,27 @@ export default function Carousel({
           />
         ))}
       </motion.div>
+
+      {/* Dot indicators */}
       <div
         className={`flex w-full justify-center ${round ? 'absolute z-20 bottom-12 left-1/2 -translate-x-1/2' : ''}`}
       >
-        <div className="mt-4 flex w-[200px] justify-between px-8">
+        <div className="mt-4 flex items-center gap-2">
           {items.map((_, index) => (
-            <motion.div
+            <motion.button
               key={index}
-              className={`w-6 h-1 gap-2 rounded-full cursor-pointer transition-colors duration-150 ${
-                activeIndex === index
-                  ? round
-                    ? 'bg-white'
-                    : 'bg-[#333333]'
-                  : round
-                    ? 'bg-white/40'
-                    : 'bg-white'
-              }`}
+              className="rounded-full cursor-pointer transition-colors duration-150"
+              style={{
+                height: '4px',
+                background:
+                  activeIndex === index ? '#5df8d8' : 'rgba(111,209,215,0.2)',
+              }}
               animate={{
-                scale: activeIndex === index ? 1.2 : 1,
+                width: activeIndex === index ? 20 : 6,
+                scale: activeIndex === index ? 1 : 1,
               }}
               onClick={() => setPosition(loop ? index + 1 : index)}
-              transition={{ duration: 0.15 }}
+              transition={{ duration: 0.2 }}
             />
           ))}
         </div>

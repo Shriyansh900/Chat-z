@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { FileText, Trash2, Loader2 } from 'lucide-react';
 import api from '@/lib/axios';
+import Image from 'next/image';
 
 interface MessageBubbleProps {
   messageId: string;
@@ -24,17 +25,14 @@ export default function MessageBubble({
   file,
   onDelete,
 }: MessageBubbleProps) {
-  const isImageFile = file && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file);
-  const [hovered, setHovered] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const isImageFile = file?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i);
 
   const handleDelete = async () => {
     setDeleting(true);
     try {
       await api.delete(`/messages/${messageId}`);
       onDelete(messageId);
-    } catch {
-      // silently fail — message stays visible
     } finally {
       setDeleting(false);
     }
@@ -43,22 +41,23 @@ export default function MessageBubble({
   return (
     <div
       className={cn(
-        'flex items-end gap-1.5 group',
+        'flex items-end gap-2 px-2 group',
         isOwn ? 'justify-end' : 'justify-start',
       )}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
-      {/* Delete button — own messages only, shown on hover */}
+      {/* Delete button */}
       {isOwn && !deleted && (
         <button
           onClick={handleDelete}
           disabled={deleting}
           title="Delete message"
-          className={cn(
-            'w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all disabled:opacity-50 shrink-0 mb-1',
-            hovered ? 'opacity-100' : 'opacity-0 pointer-events-none',
-          )}
+          className="w-7 h-7 flex items-center justify-center rounded-full
+            bg-[#093c5d]/60 border border-[#6fd1d7]/10
+            text-slate-500 hover:text-red-400 hover:border-red-400/30 hover:bg-red-400/10
+            transition-all duration-200
+            opacity-0 group-hover:opacity-100
+            translate-x-2 group-hover:translate-x-0
+            disabled:opacity-50 shrink-0 mb-1"
         >
           {deleting ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -68,67 +67,73 @@ export default function MessageBubble({
         </button>
       )}
 
+      {/* Bubble */}
       <div
         className={cn(
-          'flex flex-col gap-1 px-3 py-2 rounded-2xl max-w-[85vw] sm:max-w-sm text-sm',
+          'flex flex-col gap-1.5 px-3.5 py-2.5 rounded-2xl text-sm max-w-[85vw] sm:max-w-sm transition-all duration-200',
           isOwn
-            ? 'bg-blue-100 text-gray-800 rounded-br-sm'
-            : 'bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100',
+            ? 'bg-gradient-to-br from-[#3b7597] to-[#093c5d] text-white rounded-br-sm border border-[#6fd1d7]/20 shadow-lg shadow-[#093c5d]/40'
+            : 'glass text-slate-200 rounded-bl-sm border border-[#6fd1d7]/10',
         )}
       >
         {/* File attachment */}
         {file &&
+          !deleted &&
           (isImageFile ? (
-            <img
-              src={file}
-              alt="attachment"
-              className="rounded-lg max-w-[220px] max-h-[200px] object-cover"
-            />
+            <div className="relative">
+              <Image
+                src={file}
+                alt="attachment"
+                className="rounded-xl max-w-[240px] max-h-[220px] object-cover"
+                width={240}
+                height={220}
+              />
+              <span className="absolute bottom-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-black/50 text-white">
+                {time}
+              </span>
+            </div>
           ) : (
             <a
               href={file}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 bg-white/60 rounded-lg px-2 py-1.5 hover:bg-white/80 transition-colors"
+              className="flex items-center justify-between gap-2 bg-white/5 rounded-lg px-2.5 py-2 hover:bg-white/10 transition border border-[#6fd1d7]/10"
             >
-              <FileText className="w-4 h-4 text-blue-500 shrink-0" />
-              <span className="text-xs text-blue-600 underline truncate max-w-[160px]">
-                {file.split('/').pop()}
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#5df8d8] shrink-0" />
+                <span className="text-xs truncate max-w-[140px] text-slate-300">
+                  {file.split('/').pop()}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 shrink-0">
+                {time}
               </span>
             </a>
           ))}
 
-        {/* Text content + timestamp */}
+        {/* Text content */}
         {(content || deleted) && (
           <div className="flex items-end gap-2">
-            {deleted && (
-              <svg
-                className="w-3.5 h-3.5 text-gray-400 shrink-0 mb-0.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-              </svg>
+            {deleted ? (
+              <span className="text-xs text-slate-500 italic">
+                Message deleted
+              </span>
+            ) : (
+              <>
+                <span className="leading-snug break-all min-w-0">
+                  {content}
+                </span>
+                <span
+                  className={cn(
+                    'text-[10px] shrink-0 ml-2 whitespace-nowrap',
+                    isOwn ? 'text-[#6fd1d7]/60' : 'text-slate-500',
+                  )}
+                >
+                  {time}
+                </span>
+              </>
             )}
-            <span
-              className={cn('leading-snug', deleted && 'italic text-gray-400')}
-            >
-              {content}
-            </span>
-            <span className="text-[11px] text-blue-400 shrink-0 self-end ml-1 whitespace-nowrap">
-              {time}
-            </span>
           </div>
-        )}
-
-        {/* Timestamp only (file with no text) */}
-        {file && !content && !deleted && (
-          <span className="text-[11px] text-blue-400 self-end whitespace-nowrap">
-            {time}
-          </span>
         )}
       </div>
     </div>

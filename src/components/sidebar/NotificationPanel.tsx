@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, UserCheck, UserX, Loader2, RefreshCw } from 'lucide-react';
+import { X, UserCheck, UserX, Loader2, RefreshCw, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/axios';
 import { FriendRequest } from '@/types';
@@ -10,7 +10,6 @@ interface NotificationPanelProps {
   open: boolean;
   onClose: () => void;
   onCountChange: (count: number) => void;
-  /** Renders inline (fills parent) instead of a fixed overlay — used on mobile */
   inline?: boolean;
 }
 
@@ -80,16 +79,15 @@ export default function NotificationPanel({
     }
   };
 
-  // Shared content block
   const content = (
     <>
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-gray-100">
-        <h2 className="text-sm font-semibold text-gray-900">Friend Requests</h2>
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-[#6fd1d7]/10">
+        <h2 className="text-sm font-semibold text-white">Friend Requests</h2>
         <div className="flex items-center gap-1">
           <button
             onClick={fetchRequests}
             title="Refresh"
-            className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+            className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-300 rounded-lg hover:bg-[#6fd1d7]/10 transition-colors"
           >
             <RefreshCw
               className={cn('w-3.5 h-3.5', loading && 'animate-spin')}
@@ -98,32 +96,35 @@ export default function NotificationPanel({
           {!inline && (
             <button
               onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+              className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-300 rounded-lg hover:bg-[#6fd1d7]/10 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           )}
         </div>
       </div>
+
       <div className="flex-1 overflow-y-auto">
         {loading && (
           <div className="flex items-center justify-center mt-12">
-            <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+            <Loader2 className="w-5 h-5 text-[#6fd1d7] animate-spin" />
           </div>
         )}
+
         {!loading && requests.length === 0 && (
           <div className="flex flex-col items-center justify-center mt-16 px-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-              <UserCheck className="w-5 h-5 text-gray-400" />
+            <div className="w-12 h-12 rounded-2xl bg-[#093c5d]/40 border border-[#6fd1d7]/10 flex items-center justify-center mb-3">
+              <Bell className="w-5 h-5 text-slate-600" />
             </div>
-            <p className="text-sm font-medium text-gray-600">
+            <p className="text-sm font-medium text-slate-400">
               No pending requests
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-slate-600 mt-1">
               Friend requests will appear here
             </p>
           </div>
         )}
+
         {!loading &&
           requests.map((req) => {
             const state = actionState[req._id] ?? 'idle';
@@ -132,24 +133,25 @@ export default function NotificationPanel({
             return (
               <div
                 key={req._id}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 hover:bg-[#6fd1d7]/5 transition-colors"
               >
                 {req.sender.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={req.sender.avatar}
                     alt={req.sender.username}
-                    className="w-9 h-9 rounded-full object-cover shrink-0"
+                    className="w-9 h-9 rounded-full object-cover shrink-0 border border-[#6fd1d7]/20"
                   />
                 ) : (
-                  <div className="w-9 h-9 rounded-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#6fd1d7] to-[#3b7597] flex items-center justify-center text-white text-xs font-semibold shrink-0">
                     {initials}
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-medium text-white truncate">
                     {req.sender.username}
                   </p>
-                  <p className="text-xs text-gray-400 truncate">
+                  <p className="text-xs text-slate-500 truncate">
                     {req.sender.email}
                   </p>
                 </div>
@@ -158,7 +160,7 @@ export default function NotificationPanel({
                     onClick={() => handleAccept(req._id)}
                     disabled={isBusy}
                     title="Accept"
-                    className="w-7 h-7 flex items-center justify-center rounded-full bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-50 transition-colors"
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-[#5df8d8]/10 text-[#5df8d8] hover:bg-[#5df8d8]/20 disabled:opacity-50 transition-colors"
                   >
                     {state === 'accepting' ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -170,7 +172,7 @@ export default function NotificationPanel({
                     onClick={() => handleReject(req._id)}
                     disabled={isBusy}
                     title="Reject"
-                    className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100 disabled:opacity-50 transition-colors"
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-red-400/10 text-red-400 hover:bg-red-400/20 disabled:opacity-50 transition-colors"
                   >
                     {state === 'rejecting' ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -186,19 +188,17 @@ export default function NotificationPanel({
     </>
   );
 
-  // Inline mode — fills parent container (mobile tab)
-  if (inline) {
-    return <div className="flex flex-col h-full bg-white">{content}</div>;
-  }
+  if (inline)
+    return <div className="flex flex-col h-full bg-[#060d14]">{content}</div>;
 
-  // Overlay mode — fixed side panel (desktop)
   return (
     <>
       {open && <div className="fixed inset-0 z-30" onClick={onClose} />}
       <div
         className={cn(
-          'fixed top-0 h-full bg-white shadow-lg z-40 flex flex-col transition-transform duration-300',
-          'left-0 w-full sm:left-[52px] sm:w-[300px] sm:border-r border-gray-100',
+          'fixed top-0 h-full z-40 flex flex-col transition-transform duration-300',
+          'left-0 w-full sm:left-[52px] sm:w-[300px]',
+          'bg-[#060d14] border-r border-[#6fd1d7]/10 shadow-2xl shadow-[#060d14]/80',
           open ? 'translate-x-0' : '-translate-x-full pointer-events-none',
         )}
       >

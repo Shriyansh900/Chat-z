@@ -12,7 +12,7 @@ export default function EmojiPicker({ onSelect }: EmojiPickerProps) {
     <Picker
       data={data}
       onEmojiSelect={(emoji: { native: string }) => onSelect(emoji.native)}
-      theme="light"
+      theme="dark"
       previewPosition="none"
       skinTonePosition="none"
     />

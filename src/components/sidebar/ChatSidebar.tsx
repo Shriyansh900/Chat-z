@@ -4,7 +4,6 @@ import {
   Search,
   MoreHorizontal,
   Plus,
-  SlidersHorizontal,
   X,
   Loader2,
   UserPlus,
@@ -27,9 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import CreateGroupModal from './CreateGroupModal';
 
-const tabs = ['Chats', 'Channels', 'Direct', 'Groups'];
 const DEBOUNCE_MS = 400;
-
 type RequestStatus = 'idle' | 'sending' | 'sent' | 'error';
 
 export default function ChatSidebar({
@@ -41,18 +38,16 @@ export default function ChatSidebar({
     useChatStore();
   const { user } = useAuthStore();
 
-  // ── Search state ──────────────────────────────────────────
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [searching, setSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Friend request modal state ────────────────────────────
   const [pendingUser, setPendingUser] = useState<User | null>(null);
   const [requestStatus, setRequestStatus] = useState<RequestStatus>('idle');
   const [requestError, setRequestError] = useState('');
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
 
-  // Fetch chats + groups in parallel on mount, merge into one list
   useEffect(() => {
     Promise.all([
       api.get('/chats').catch(() => ({ data: [] })),
@@ -63,38 +58,27 @@ export default function ChatSidebar({
         : chatsRes.data
           ? [chatsRes.data]
           : [];
-
       const groups: Group[] = Array.isArray(groupsRes.data)
         ? groupsRes.data
         : groupsRes.data
           ? [groupsRes.data]
           : [];
-
-      // Build a map of chatId → group name for quick lookup
       const groupNameMap = new Map<string, string>(
         groups.map((g) => [g.chat, g.name]),
       );
-
-      // Annotate group chats with their name
       const annotated = dmChats.map((c) =>
         groupNameMap.has(c._id) ? { ...c, name: groupNameMap.get(c._id) } : c,
       );
-
-      // Also add any group chats not already in the DM list
       const existingIds = new Set(dmChats.map((c: { _id: string }) => c._id));
-      // (GET /chats should already include group chats, but guard just in case)
-
       setChats(
         annotated.filter((c: { _id: string }) => existingIds.has(c._id)),
       );
     });
   }, [setChats]);
 
-  // Debounced search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim()) return;
-
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
       try {
@@ -109,7 +93,6 @@ export default function ChatSidebar({
         setSearching(false);
       }
     }, DEBOUNCE_MS);
-
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
@@ -126,20 +109,17 @@ export default function ChatSidebar({
 
   const handleSelectChat = (chatId: string) => {
     const chat = chats.find((c) => c._id === chatId);
-    if (!chat || activeChat?._id === chatId) return; // already active — no-op
+    if (!chat || activeChat?._id === chatId) return;
     setActiveChat(chat);
-    // ChatWindow owns the message fetch — no fetch here
   };
 
-  // ── Friend request handlers ───────────────────────────────
   const openRequestModal = (u: User) => {
     setPendingUser(u);
     setRequestStatus('idle');
     setRequestError('');
   };
-
   const closeRequestModal = () => {
-    if (requestStatus === 'sending') return; // block close while in-flight
+    if (requestStatus === 'sending') return;
     setPendingUser(null);
     setRequestStatus('idle');
     setRequestError('');
@@ -155,39 +135,40 @@ export default function ChatSidebar({
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? 'Failed to send request. Please try again.';
+          ?.message ?? 'Failed to send request.';
       setRequestError(msg);
       setRequestStatus('error');
     }
   };
 
-  const [groupModalOpen, setGroupModalOpen] = useState(false);
   const isSearching = query.trim().length > 0;
 
   return (
     <div
       className={cn(
-        'flex flex-col h-full bg-white border-r border-gray-100 transition-all duration-300 overflow-hidden shrink-0',
-        fullWidth ? 'w-full' : sidebarOpen ? 'w-[300px]' : 'w-0',
+        'flex flex-col h-full bg-[#060d14] border-r border-[#6fd1d7]/10 transition-all duration-300 overflow-hidden shrink-0',
+        fullWidth ? 'w-full' : sidebarOpen ? 'w-[280px]' : 'w-0',
       )}
     >
       <div
         className={cn(
           'flex flex-col h-full',
-          fullWidth ? 'w-full' : 'w-[300px]',
+          fullWidth ? 'w-full' : 'w-[280px]',
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-2">
-          <h1 className="text-base font-semibold text-gray-900">Chats</h1>
+        <div className="flex items-center justify-between px-4 pt-4 pb-3">
+          <h1 className="text-sm font-bold text-white tracking-wide">
+            Messages
+          </h1>
           <div className="flex items-center gap-1">
-            <button className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
+            <button className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-300 transition-colors">
               <MoreHorizontal className="w-4 h-4" />
             </button>
             <button
               onClick={() => setGroupModalOpen(true)}
               title="New group"
-              className="w-7 h-7 flex items-center justify-center bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+              className="w-7 h-7 flex items-center justify-center bg-gradient-to-br from-[#5df8d8] to-[#6fd1d7] text-[#060d14] rounded-full hover:opacity-90 transition-opacity"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -195,24 +176,26 @@ export default function ChatSidebar({
         </div>
 
         {/* Search bar */}
-        <div className="px-3 pb-2">
+        <div className="px-3 pb-3">
           <div
             className={cn(
-              'flex items-center gap-2 bg-gray-50 border rounded-lg px-3 py-1.5 transition-colors',
-              isSearching ? 'border-blue-300 bg-white' : 'border-gray-200',
+              'flex items-center gap-2 rounded-xl px-3 py-2 transition-all border',
+              isSearching
+                ? 'bg-[#093c5d]/40 border-[#5df8d8]/40'
+                : 'bg-[#093c5d]/20 border-[#6fd1d7]/10 hover:border-[#6fd1d7]/20',
             )}
           >
             {searching ? (
-              <Loader2 className="w-3.5 h-3.5 text-blue-400 shrink-0 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 text-[#5df8d8] shrink-0 animate-spin" />
             ) : (
-              <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <Search className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             )}
             <input
               type="text"
               value={query}
               onChange={handleQueryChange}
-              placeholder="Search chats and contacts (ctrl + k)"
-              className="bg-transparent text-xs text-gray-600 placeholder:text-gray-400 outline-none w-full"
+              placeholder="Search messages..."
+              className="bg-transparent text-xs text-slate-300 placeholder:text-slate-600 outline-none w-full"
             />
             {isSearching && (
               <button
@@ -221,7 +204,7 @@ export default function ChatSidebar({
                   setSearchResults([]);
                   setSearching(false);
                 }}
-                className="text-gray-400 hover:text-gray-600 shrink-0"
+                className="text-slate-500 hover:text-slate-300 shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -233,7 +216,7 @@ export default function ChatSidebar({
         {isSearching ? (
           <div className="flex-1 overflow-y-auto">
             {!searching && searchResults.length === 0 && (
-              <p className="text-xs text-gray-400 text-center mt-8 px-4">
+              <p className="text-xs text-slate-600 text-center mt-8 px-4">
                 No users found
               </p>
             )}
@@ -243,35 +226,31 @@ export default function ChatSidebar({
               return (
                 <div
                   key={u._id}
-                  className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#6fd1d7]/5 transition-colors"
                 >
-                  {/* Avatar */}
                   {u.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={u.avatar}
                       alt={u.username}
-                      className="w-9 h-9 rounded-full object-cover shrink-0"
+                      className="w-9 h-9 rounded-full object-cover shrink-0 border border-[#6fd1d7]/20"
                     />
                   ) : (
-                    <div className="w-9 h-9 rounded-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#6fd1d7] to-[#3b7597] flex items-center justify-center text-white text-xs font-semibold shrink-0">
                       {initials}
                     </div>
                   )}
-
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-medium text-white truncate">
                       {u.username}
                     </p>
-                    <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                    <p className="text-xs text-slate-500 truncate">{u.email}</p>
                   </div>
-
-                  {/* Add friend button */}
                   {!isSelf && (
                     <button
                       onClick={() => openRequestModal(u)}
                       title="Send friend request"
-                      className="w-7 h-7 flex items-center justify-center rounded-full bg-blue-50 text-blue-500 hover:bg-blue-100 transition-colors shrink-0"
+                      className="w-7 h-7 flex items-center justify-center rounded-full bg-[#5df8d8]/10 text-[#5df8d8] hover:bg-[#5df8d8]/20 transition-colors shrink-0"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
                     </button>
@@ -281,123 +260,80 @@ export default function ChatSidebar({
             })}
           </div>
         ) : (
-          <>
-            {/* Tabs */}
-            <div className="flex items-center gap-1 px-3 pb-2">
-              {tabs.map((tab) => (
+          <div className="flex-1 overflow-y-auto">
+            {chats.length === 0 && (
+              <p className="text-xs text-slate-600 text-center mt-8 px-4">
+                No chats yet
+              </p>
+            )}
+            {chats.map((chat) => {
+              const partner = chat.users.find((u) => u._id !== user?._id);
+              const displayName = chat.isGroup
+                ? (chat.name ?? 'Group')
+                : (partner?.username ?? 'Unknown');
+              const initials = displayName.slice(0, 2).toUpperCase();
+              const isActive = activeChat?._id === chat._id;
+              const lastMsg = chat.lastMessage?.content ?? '';
+              const lastTime = chat.updatedAt
+                ? new Date(chat.updatedAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : '';
+
+              return (
                 <button
-                  key={tab}
+                  key={chat._id}
+                  onClick={() => handleSelectChat(chat._id)}
                   className={cn(
-                    'px-3 py-1 rounded-full text-xs font-medium transition-colors',
-                    tab === 'Chats'
-                      ? 'bg-blue-500 text-white'
-                      : 'text-gray-500 hover:bg-gray-100',
+                    'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all duration-150',
+                    isActive
+                      ? 'bg-[#6fd1d7]/10 border-l-2 border-[#5df8d8]'
+                      : 'border-l-2 border-transparent hover:bg-[#6fd1d7]/5',
                   )}
                 >
-                  {tab}
-                </button>
-              ))}
-              <button className="ml-auto text-gray-400 hover:text-gray-600">
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Invite banner */}
-            <div className="mx-3 mb-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="flex -space-x-2">
-                  {[
-                    'from-purple-400 to-purple-600',
-                    'from-blue-400 to-blue-600',
-                    'from-teal-400 to-teal-600',
-                  ].map((g, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        'w-6 h-6 rounded-full bg-linear-to-br border-2 border-white flex items-center justify-center text-white text-[10px] font-semibold',
-                        g,
-                      )}
-                    >
-                      {['A', 'B', 'C'][i]}
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs font-semibold text-gray-800">
-                  Your friends are waiting for you
-                </p>
-              </div>
-              <p className="text-[11px] text-gray-500 mb-2 leading-relaxed">
-                Find and message people you know
-              </p>
-              <button className="w-full bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold py-1.5 rounded-lg transition-colors">
-                Explore contacts
-              </button>
-            </div>
-
-            {/* Chat list */}
-            <div className="flex-1 overflow-y-auto">
-              {chats.length === 0 && (
-                <p className="text-xs text-gray-400 text-center mt-8 px-4">
-                  No chats yet
-                </p>
-              )}
-              {chats.map((chat) => {
-                const partner = chat.users.find((u) => u._id !== user?._id);
-                const displayName = chat.isGroup
-                  ? (chat.name ?? 'Group')
-                  : (partner?.username ?? 'Unknown');
-                const initials = displayName.slice(0, 2).toUpperCase();
-                const isActive = activeChat?._id === chat._id;
-                const lastMsg = chat.lastMessage?.content ?? '';
-                const lastTime = chat.updatedAt
-                  ? new Date(chat.updatedAt).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                    })
-                  : '';
-
-                return (
-                  <button
-                    key={chat._id}
-                    onClick={() => handleSelectChat(chat._id)}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors',
-                      isActive ? 'bg-blue-50' : 'hover:bg-gray-50',
-                    )}
-                  >
+                  <div className="relative shrink-0">
                     {partner?.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={partner.avatar}
                         alt={displayName}
-                        className="w-9 h-9 rounded-full object-cover shrink-0"
+                        className="w-9 h-9 rounded-full object-cover border border-[#6fd1d7]/20"
                       />
                     ) : (
-                      <div className="w-9 h-9 rounded-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#6fd1d7] to-[#3b7597] flex items-center justify-center text-white text-xs font-semibold">
                         {initials}
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-900 truncate">
-                          {displayName}
-                        </span>
-                        <span className="text-[11px] text-gray-400 shrink-0 ml-2">
-                          {lastTime}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400 truncate mt-0.5 italic">
-                        {lastMsg}
-                      </p>
+                    {/* Online dot */}
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#5df8d8] border-2 border-[#060d14] rounded-full" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={cn(
+                          'text-sm font-medium truncate',
+                          isActive ? 'text-white' : 'text-slate-200',
+                        )}
+                      >
+                        {displayName}
+                      </span>
+                      <span className="text-[10px] text-slate-600 shrink-0 ml-2">
+                        {lastTime}
+                      </span>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-          </>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">
+                      {lastMsg}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {/* ── Friend request confirmation modal ─────────────── */}
+      {/* Friend request modal */}
       <Dialog
         open={!!pendingUser}
         onOpenChange={(open: boolean) => {
@@ -406,50 +342,51 @@ export default function ChatSidebar({
       >
         <DialogContent
           showCloseButton={requestStatus !== 'sending'}
-          className="max-w-sm"
+          className="max-w-sm bg-[#0a1929] border border-[#6fd1d7]/20 text-white"
         >
           <DialogHeader>
-            <DialogTitle>Send Friend Request</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-white">
+              Send Friend Request
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
               {requestStatus === 'sent'
                 ? `Friend request sent to ${pendingUser?.username}!`
                 : `Send a friend request to ${pendingUser?.username}?`}
             </DialogDescription>
           </DialogHeader>
 
-          {/* User preview */}
           {pendingUser && requestStatus !== 'sent' && (
             <div className="flex items-center gap-3 py-1">
               {pendingUser.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={pendingUser.avatar}
                   alt={pendingUser.username}
-                  className="w-10 h-10 rounded-full object-cover"
+                  className="w-10 h-10 rounded-full object-cover border border-[#6fd1d7]/20"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-sm font-semibold">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6fd1d7] to-[#3b7597] flex items-center justify-center text-white text-sm font-semibold">
                   {pendingUser.username.slice(0, 2).toUpperCase()}
                 </div>
               )}
               <div>
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-white">
                   {pendingUser.username}
                 </p>
-                <p className="text-xs text-gray-400">{pendingUser.email}</p>
+                <p className="text-xs text-slate-500">{pendingUser.email}</p>
               </div>
             </div>
           )}
 
-          {/* Error message */}
           {requestStatus === 'error' && (
-            <p className="text-xs text-red-500 -mt-1">{requestError}</p>
+            <p className="text-xs text-red-400 -mt-1">{requestError}</p>
           )}
 
           <DialogFooter>
             {requestStatus === 'sent' ? (
               <Button
                 onClick={closeRequestModal}
-                className="bg-green-500 hover:bg-green-600 text-white gap-1.5"
+                className="bg-[#5df8d8] hover:bg-[#4ae8c8] text-[#060d14] gap-1.5"
               >
                 <Check className="w-4 h-4" /> Done
               </Button>
@@ -459,13 +396,14 @@ export default function ChatSidebar({
                   variant="outline"
                   onClick={closeRequestModal}
                   disabled={requestStatus === 'sending'}
+                  className="border-[#6fd1d7]/20 text-slate-300 hover:bg-[#6fd1d7]/10"
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={sendFriendRequest}
                   disabled={requestStatus === 'sending'}
-                  className="bg-blue-500 hover:bg-blue-600 text-white gap-1.5"
+                  className="bg-gradient-to-r from-[#5df8d8] to-[#6fd1d7] text-[#060d14] hover:opacity-90 gap-1.5"
                 >
                   {requestStatus === 'sending' ? (
                     <>
@@ -483,7 +421,6 @@ export default function ChatSidebar({
         </DialogContent>
       </Dialog>
 
-      {/* ── Create Group modal ────────────────────────────── */}
       <CreateGroupModal
         open={groupModalOpen}
         onClose={() => setGroupModalOpen(false)}

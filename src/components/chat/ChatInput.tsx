@@ -1,6 +1,6 @@
 'use client';
 
-import { Paperclip, Smile, Mic, Heading, X, FileText } from 'lucide-react';
+import { Paperclip, Smile, X, FileText, Send, Shield } from 'lucide-react';
 import { useRef, useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { getSocket } from '@/lib/socket';
@@ -27,14 +27,12 @@ export default function ChatInput() {
   const { activeChat, addMessage } = useChatStore();
   const { user } = useAuthStore();
 
-  // Clear typing timer on unmount to prevent emitting on a dead socket
   useEffect(() => {
     return () => {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
   }, []);
 
-  // ── Typing indicator ──────────────────────────────────────
   const emitTyping = useCallback(() => {
     if (!activeChat) return;
     const socket = getSocket();
@@ -54,37 +52,27 @@ export default function ChatInput() {
     emitTyping();
   };
 
-  // ── File attachment ───────────────────────────────────────
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     setAttachedFile(file);
-    // Reset so same file can be re-selected
     e.target.value = '';
   };
 
   const removeAttachment = () => setAttachedFile(null);
 
-  // ── Send ──────────────────────────────────────────────────
   const handleSend = async () => {
     const trimmed = value.trim();
     if ((!trimmed && !attachedFile) || !activeChat || !user) return;
-
-    // Capture before clearing — prevents stale restore in catch
     const capturedFile = attachedFile;
-
     setSending(true);
     setValue('');
     setAttachedFile(null);
-
-    // Stop typing indicator
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     isTypingRef.current = false;
     getSocket().emit('stop_typing', activeChat._id);
-
     try {
       let res;
       if (capturedFile) {
-        // File message — multipart/form-data
         const form = new FormData();
         form.append('chatId', activeChat._id);
         if (trimmed) form.append('content', trimmed);
@@ -93,7 +81,6 @@ export default function ChatInput() {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
-        // Text-only message — plain JSON
         res = await api.post('/messages', {
           chatId: activeChat._id,
           content: trimmed,
@@ -102,7 +89,6 @@ export default function ChatInput() {
       addMessage(res.data);
       useChatStore.getState().updateChatLastMessage(activeChat._id, res.data);
     } catch {
-      // Restore on failure using captured values
       setValue(trimmed);
       setAttachedFile(capturedFile);
     } finally {
@@ -124,9 +110,10 @@ export default function ChatInput() {
   };
 
   const isImage = attachedFile?.type.startsWith('image/');
+  const canSend = (value.trim() || attachedFile) && activeChat && !sending;
 
   return (
-    <div className="px-2 sm:px-4 py-2.5 bg-white border-t border-gray-100 shrink-0 relative">
+    <div className="px-3 sm:px-5 py-3 bg-[#0a1929] border-t border-[#6fd1d7]/10 shrink-0 relative">
       {/* Emoji picker */}
       {showEmoji && (
         <>
@@ -140,25 +127,26 @@ export default function ChatInput() {
         </>
       )}
 
-      {/* File preview strip */}
+      {/* File preview */}
       {attachedFile && (
-        <div className="flex items-center gap-2 mb-2 px-1">
-          <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-1.5 max-w-xs">
+        <div className="flex items-center gap-2 mb-2.5 px-1">
+          <div className="flex items-center gap-2 glass border border-[#6fd1d7]/15 rounded-xl px-3 py-1.5 max-w-xs">
             {isImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={URL.createObjectURL(attachedFile)}
                 alt="preview"
-                className="w-8 h-8 rounded object-cover shrink-0"
+                className="w-8 h-8 rounded-lg object-cover shrink-0"
               />
             ) : (
-              <FileText className="w-4 h-4 text-blue-500 shrink-0" />
+              <FileText className="w-4 h-4 text-[#5df8d8] shrink-0" />
             )}
-            <span className="text-xs text-blue-700 truncate max-w-[160px]">
+            <span className="text-xs text-slate-300 truncate max-w-[160px]">
               {attachedFile.name}
             </span>
             <button
               onClick={removeAttachment}
-              className="text-blue-400 hover:text-blue-600 shrink-0 ml-1"
+              className="text-slate-500 hover:text-slate-300 shrink-0 ml-1"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -166,8 +154,9 @@ export default function ChatInput() {
         </div>
       )}
 
-      <div className="flex items-center gap-2 bg-white rounded-full border border-gray-200 px-4 py-2 shadow-sm">
-        {/* Hidden file input */}
+      {/* Input row */}
+      <div className="flex items-center gap-2">
+        {/* Attach */}
         <input
           ref={fileInputRef}
           type="file"
@@ -175,56 +164,64 @@ export default function ChatInput() {
           onChange={handleFileChange}
           className="hidden"
         />
-
-        {/* Attachment button */}
         <button
           title="Attach file"
           onClick={() => fileInputRef.current?.click()}
-          className="text-gray-400 hover:text-gray-500 transition-colors shrink-0"
+          className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-500 hover:text-[#6fd1d7] hover:bg-[#6fd1d7]/10 transition-colors shrink-0"
         >
-          <Paperclip className="w-[18px] h-[18px]" />
+          <Paperclip className="w-[17px] h-[17px]" />
         </button>
 
         {/* Text input */}
-        <input
-          ref={inputRef}
-          type="text"
-          value={value}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          placeholder={
-            activeChat
-              ? 'Type your message here...'
-              : 'Select a chat to start messaging'
-          }
-          disabled={!activeChat || sending}
-          className="flex-1 text-sm text-gray-700 placeholder:text-gray-400 outline-none bg-transparent disabled:opacity-50"
-        />
-
-        {/* Right actions */}
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            title="Markdown"
-            className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-500 transition-colors"
-          >
-            <Heading className="w-[16px] h-[16px]" />
-          </button>
+        <div className="flex-1 flex items-center gap-2 glass bg-[#093c5d]/20 rounded-xl px-4 py-2.5 border border-[#6fd1d7]/10 focus-within:border-[#5df8d8]/40 transition-colors">
+          <input
+            ref={inputRef}
+            type="text"
+            value={value}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={
+              activeChat
+                ? 'Encrypted message...'
+                : 'Select a chat to start messaging'
+            }
+            disabled={!activeChat || sending}
+            className="flex-1 text-sm text-slate-200 placeholder:text-slate-600 outline-none bg-transparent disabled:opacity-50"
+          />
           <button
             title="Emoji"
             onClick={() => setShowEmoji((prev) => !prev)}
-            className={`w-7 h-7 flex items-center justify-center transition-colors ${
-              showEmoji ? 'text-blue-500' : 'text-gray-400 hover:text-gray-500'
-            }`}
+            className={`shrink-0 transition-colors ${showEmoji ? 'text-[#5df8d8]' : 'text-slate-500 hover:text-slate-300'}`}
           >
-            <Smile className="w-[18px] h-[18px]" />
-          </button>
-          <button
-            title="Voice message"
-            className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-500 transition-colors"
-          >
-            <Mic className="w-[18px] h-[18px]" />
+            <Smile className="w-[17px] h-[17px]" />
           </button>
         </div>
+
+        {/* Send button */}
+        <button
+          title="Send"
+          onClick={handleSend}
+          disabled={!canSend}
+          className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 shrink-0 ${
+            canSend
+              ? 'bg-gradient-to-br from-[#5df8d8] to-[#6fd1d7] text-[#060d14] shadow-lg shadow-[#5df8d8]/20 hover:shadow-[#5df8d8]/40 hover:scale-105 active:scale-95'
+              : 'bg-[#093c5d]/30 text-slate-600 cursor-not-allowed'
+          }`}
+        >
+          {sending ? (
+            <div className="w-4 h-4 border-2 border-[#060d14]/30 border-t-[#060d14] rounded-full animate-spin" />
+          ) : (
+            <Send className="w-4 h-4" />
+          )}
+        </button>
+      </div>
+
+      {/* E2EE note */}
+      <div className="flex items-center justify-center gap-1.5 mt-2">
+        <Shield className="w-2.5 h-2.5 text-[#6fd1d7]" />
+        <span className="text-[10px] text-slate-600">
+          Messages are end-to-end encrypted. NexChat cannot read them.
+        </span>
       </div>
     </div>
   );

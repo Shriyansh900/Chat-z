@@ -1,95 +1,113 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
 import { useSocketStore } from '@/store/socketStore';
 import { getSocket } from '@/lib/socket';
 import { Message } from '@/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MessageCircle } from 'lucide-react';
 import api from '@/lib/axios';
 import MessageBubble from './MessageBubble';
 
-// Resolve chat ID from message — backend may send chat as string or populated object
 function getChatId(chat: Message['chat']): string {
   return typeof chat === 'string' ? chat : chat._id;
 }
 
+type FetchState = { loading: boolean; messages: Message[] };
+type FetchAction =
+  | { type: 'start' }
+  | { type: 'done'; messages: Message[] }
+  | { type: 'error' };
+
+function fetchReducer(_: FetchState, action: FetchAction): FetchState {
+  switch (action.type) {
+    case 'start':
+      return { loading: true, messages: [] };
+    case 'done':
+      return { loading: false, messages: action.messages };
+    case 'error':
+      return { loading: false, messages: [] };
+  }
+}
+
 export default function ChatWindow() {
-  const { messages, setMessages, activeChat, deleteMessage } = useChatStore();
+  const {
+    messages: storeMessages,
+    setMessages,
+    activeChat,
+    deleteMessage,
+  } = useChatStore();
   const { user } = useAuthStore();
+
+  const [fetchState, dispatch] = useReducer(fetchReducer, {
+    loading: false,
+    messages: [],
+  });
   const [isTyping, setIsTyping] = useState(false);
-  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  // Ref tracks the currently loaded chat ID to guard in-flight responses
+  const containerRef = useRef<HTMLDivElement>(null);
   const activeChatIdRef = useRef<string | null>(null);
+  const activeChatIdForSocket = useRef<string | null>(null);
+  const currentUserId = useRef<string | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Fetch messages + join socket room when active chat changes ──
+  useEffect(() => {
+    activeChatIdForSocket.current = activeChat?._id ?? null;
+  }, [activeChat?._id]);
+  useEffect(() => {
+    currentUserId.current = user?._id ?? null;
+  }, [user?._id]);
+
+  useEffect(() => {
+    if (!fetchState.loading) setMessages(fetchState.messages);
+  }, [fetchState]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!activeChat) return;
-
     activeChatIdRef.current = activeChat._id;
-    setMessages([]);
-    setLoadingMessages(true);
-
     const socket = getSocket();
-
-    // Join the socket room — wait for connection if not yet connected
     const joinRoom = () => socket.emit('join_chat', activeChat._id);
-    if (socket.connected) {
-      joinRoom();
-    } else {
-      socket.once('connect', joinRoom);
-    }
-
+    if (socket.connected) joinRoom();
+    else socket.once('connect', joinRoom);
+    dispatch({ type: 'start' });
     api
       .get(`/messages/${activeChat._id}`)
       .then((res) => {
-        if (activeChatIdRef.current !== activeChat._id) return; // stale
+        if (activeChatIdRef.current !== activeChat._id) return;
         const data = res.data;
-        setMessages(Array.isArray(data) ? data : data ? [data] : []);
+        const msgs: Message[] = Array.isArray(data) ? data : data ? [data] : [];
+        msgs.sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        );
+        dispatch({ type: 'done', messages: msgs });
       })
       .catch(() => {
-        if (activeChatIdRef.current === activeChat._id) setMessages([]);
-      })
-      .finally(() => {
         if (activeChatIdRef.current === activeChat._id)
-          setLoadingMessages(false);
+          dispatch({ type: 'error' });
       });
-
     return () => {
-      // Clean up the pending connect listener if chat changes before connect
       socket.off('connect', joinRoom);
     };
   }, [activeChat?._id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Socket listeners — registered once, read store directly to avoid stale closures ──
-  const activeChatIdForSocket = useRef<string | null>(null);
-  const currentUserId = useRef<string | null>(null);
-  activeChatIdForSocket.current = activeChat?._id ?? null;
-  currentUserId.current = user?._id ?? null;
 
   useEffect(() => {
     const socket = getSocket();
     const { setUserOnline, setUserOffline } = useSocketStore.getState();
 
     const onMessage = (message: Message) => {
-      // Skip own messages — sender already added via addMessage() in ChatInput
       if (message.sender._id === currentUserId.current) return;
-
       const msgChatId = getChatId(message.chat);
-
-      // Always update the sidebar last-message preview regardless of active chat
       useChatStore.getState().updateChatLastMessage(msgChatId, message);
-
-      // Only add to the message list if this chat is currently open
       if (msgChatId !== activeChatIdForSocket.current) return;
-
-      useChatStore.getState().addMessage(message);
+      const exists = useChatStore
+        .getState()
+        .messages.some((m) => m._id === message._id);
+      if (!exists) useChatStore.getState().addMessage(message);
     };
-
-    // Server emits { messageId, chatId } when a message is deleted
     const onMessageDeleted = ({
       messageId,
     }: {
@@ -98,26 +116,24 @@ export default function ChatWindow() {
     }) => {
       useChatStore.getState().deleteMessage(messageId);
     };
-
-    // Typing payload is now { chatId, userId }
     const onTyping = ({ chatId }: { chatId: string; userId: string }) => {
-      if (chatId === activeChatIdForSocket.current) setIsTyping(true);
+      if (chatId !== activeChatIdForSocket.current) return;
+      setIsTyping(true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 3000);
     };
     const onStopTyping = ({ chatId }: { chatId: string; userId: string }) => {
-      if (chatId === activeChatIdForSocket.current) setIsTyping(false);
+      if (chatId !== activeChatIdForSocket.current) return;
+      setIsTyping(false);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-
-    // Presence events — friends only
     const onUserOnline = ({ userId }: { userId: string }) =>
       setUserOnline(userId);
     const onUserOffline = ({ userId }: { userId: string }) =>
       setUserOffline(userId);
-
-    // Re-join the active room after a reconnect
     const onReconnect = () => {
-      if (activeChatIdForSocket.current) {
+      if (activeChatIdForSocket.current)
         socket.emit('join_chat', activeChatIdForSocket.current);
-      }
     };
 
     socket.on('receive_message', onMessage);
@@ -136,64 +152,95 @@ export default function ChatWindow() {
       socket.off('user_online', onUserOnline);
       socket.off('user_offline', onUserOffline);
       socket.off('connect', onReconnect);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reset activeChatIdRef on unmount so re-mount always re-fetches
-  useEffect(() => {
-    return () => {
-      activeChatIdRef.current = null;
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, []);
 
-  // ── Auto-scroll on new messages ──────────────────────────
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    const container = containerRef.current;
+    if (!container) return;
+    const isNearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      120;
+    if (isNearBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      setShowScrollBtn(false);
+    } else setShowScrollBtn(true);
+  }, [storeMessages.length]);
 
-  // ── Group messages by date ────────────────────────────────
-  const grouped = messages.reduce<Record<string, Message[]>>((acc, msg) => {
-    const date = new Date(msg.createdAt).toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-    (acc[date] ??= []).push(msg);
-    return acc;
-  }, {});
+  useEffect(() => {
+    if (!fetchState.loading)
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+  }, [fetchState.loading]);
+
+  const handleScroll = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    setShowScrollBtn(el.scrollHeight - el.scrollTop - el.clientHeight >= 120);
+  };
+
+  const grouped = storeMessages.reduce<Record<string, Message[]>>(
+    (acc, msg) => {
+      const date = new Date(msg.createdAt).toDateString();
+      (acc[date] ??= []).push(msg);
+      return acc;
+    },
+    {},
+  );
+
+  const sortedGroups = Object.entries(grouped).sort(
+    ([a], [b]) => new Date(a).getTime() - new Date(b).getTime(),
+  );
 
   if (!activeChat) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#f0f2f5]">
-        <p className="text-sm text-gray-400">
-          Select a chat to start messaging
-        </p>
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#060d14] gap-4">
+        <div className="w-16 h-16 rounded-2xl bg-[#093c5d]/40 border border-[#6fd1d7]/10 flex items-center justify-center">
+          <MessageCircle className="w-7 h-7 text-slate-600" />
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-medium text-slate-400">
+            No conversation selected
+          </p>
+          <p className="text-xs text-slate-600 mt-1">
+            Pick a chat from the sidebar to start messaging
+          </p>
+        </div>
       </div>
     );
   }
 
-  if (loadingMessages) {
+  if (fetchState.loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#f0f2f5]">
-        <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+      <div className="flex-1 flex items-center justify-center bg-[#060d14]">
+        <Loader2 className="w-5 h-5 animate-spin text-[#6fd1d7]" />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 bg-[#f0f2f5]">
-      <div className="flex flex-col gap-5">
-        {Object.keys(grouped).length === 0 && (
+    <div
+      ref={containerRef}
+      onScroll={handleScroll}
+      className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 relative"
+      style={{
+        background:
+          'radial-gradient(at 20% 10%, rgba(9,60,93,0.4) 0px, transparent 60%), radial-gradient(at 80% 80%, rgba(9,60,93,0.3) 0px, transparent 50%), #060d14',
+      }}
+    >
+      <div className="flex flex-col gap-4">
+        {sortedGroups.length === 0 && (
           <div className="flex items-center justify-center mt-16">
-            <p className="text-xs text-gray-400">No messages yet. Say hello!</p>
+            <p className="text-xs text-slate-600">
+              No messages yet. Say hello!
+            </p>
           </div>
         )}
 
-        {Object.entries(grouped).map(([date, msgs]) => (
-          <div key={date} className="flex flex-col gap-2">
-            <div className="flex items-center justify-center my-1">
-              <span className="text-xs text-gray-500 bg-[#f0f2f5] px-3 py-0.5 rounded-full">
+        {sortedGroups.map(([date, msgs]) => (
+          <div key={date}>
+            <div className="flex justify-center my-3">
+              <span className="text-[11px] text-slate-500 glass px-3 py-1 rounded-full border border-[#6fd1d7]/10">
                 {date}
               </span>
             </div>
@@ -204,7 +251,7 @@ export default function ChatWindow() {
                   messageId={msg._id}
                   content={msg.content}
                   file={msg.file}
-                  time={new Date(msg.createdAt).toLocaleTimeString('en-US', {
+                  time={new Date(msg.createdAt).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
@@ -216,16 +263,34 @@ export default function ChatWindow() {
           </div>
         ))}
 
+        {/* Typing indicator */}
         {isTyping && (
-          <div className="flex justify-start">
-            <div className="bg-white px-4 py-2 rounded-2xl rounded-bl-sm text-xs text-gray-400 italic shadow-sm">
-              typing…
+          <div className="flex items-end gap-2.5 px-2">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#6fd1d7] to-[#3b7597] flex items-center justify-center text-white text-xs font-bold shrink-0">
+              A
+            </div>
+            <div className="glass rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1.5 items-center border border-[#6fd1d7]/10">
+              <span className="typing-dot w-1.5 h-1.5 bg-[#6fd1d7] rounded-full" />
+              <span className="typing-dot w-1.5 h-1.5 bg-[#6fd1d7] rounded-full" />
+              <span className="typing-dot w-1.5 h-1.5 bg-[#6fd1d7] rounded-full" />
             </div>
           </div>
         )}
 
         <div ref={bottomRef} />
       </div>
+
+      {showScrollBtn && (
+        <button
+          onClick={() => {
+            bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+            setShowScrollBtn(false);
+          }}
+          className="absolute bottom-5 right-5 bg-gradient-to-r from-[#5df8d8] to-[#6fd1d7] text-[#060d14] px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg shadow-[#5df8d8]/20 hover:opacity-90 transition-opacity"
+        >
+          New messages ↓
+        </button>
+      )}
     </div>
   );
 }

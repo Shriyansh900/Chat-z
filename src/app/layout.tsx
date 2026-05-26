@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'App',
-  description: 'App',
+  title: 'NexChat',
+  description: 'Secure real-time messaging powered by Socket.IO and E2EE',
 };
 
 // Root layout — minimal, wraps all route groups
@@ -26,7 +26,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
       <body className="min-h-full">{children}</body>
     </html>

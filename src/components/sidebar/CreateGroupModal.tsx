@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Users, X, Check } from 'lucide-react';
+import { Loader2, Users, Check } from 'lucide-react';
 import api from '@/lib/axios';
 import { User, Chat } from '@/types';
 import { useChatStore } from '@/store/chatStore';
@@ -25,7 +25,6 @@ export default function CreateGroupModal({
   onClose,
 }: CreateGroupModalProps) {
   const { chats, setChats, setActiveChat } = useChatStore();
-
   const [groupName, setGroupName] = useState('');
   const [friends, setFriends] = useState<User[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -33,7 +32,6 @@ export default function CreateGroupModal({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
-  // Fetch friends when modal opens
   useEffect(() => {
     if (!open) return;
     setGroupName('');
@@ -50,13 +48,12 @@ export default function CreateGroupModal({
       .finally(() => setLoadingFriends(false));
   }, [open]);
 
-  const toggleMember = (id: string) => {
+  const toggleMember = (id: string) =>
     setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
     });
-  };
 
   const handleCreate = async () => {
     if (!groupName.trim()) {
@@ -67,7 +64,6 @@ export default function CreateGroupModal({
       setError('Select at least one member.');
       return;
     }
-
     setCreating(true);
     setError('');
     try {
@@ -75,8 +71,6 @@ export default function CreateGroupModal({
         name: groupName.trim(),
         members: Array.from(selectedIds),
       });
-
-      // The API returns the group; fetch the associated chat and open it
       const chatId: string = res.data.chat;
       const chatRes = await api.get('/chats');
       const allChats: Chat[] = Array.isArray(chatRes.data)
@@ -84,18 +78,15 @@ export default function CreateGroupModal({
         : chatRes.data
           ? [chatRes.data]
           : [];
-
       setChats(allChats);
       const newChat = allChats.find((c) => c._id === chatId);
-      if (newChat) {
-        setActiveChat(newChat);
-      }
+      if (newChat) setActiveChat(newChat);
       onClose();
     } catch (err: unknown) {
-      const msg =
+      setError(
         (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message ?? 'Failed to create group. Please try again.';
-      setError(msg);
+          ?.message ?? 'Failed to create group.',
+      );
     } finally {
       setCreating(false);
     }
@@ -108,12 +99,15 @@ export default function CreateGroupModal({
         if (!o && !creating) onClose();
       }}
     >
-      <DialogContent showCloseButton={!creating} className="max-w-sm">
+      <DialogContent
+        showCloseButton={!creating}
+        className="max-w-sm bg-[#0a1929] border border-[#6fd1d7]/20 text-white"
+      >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-blue-500" /> New Group
+          <DialogTitle className="flex items-center gap-2 text-white">
+            <Users className="w-4 h-4 text-[#5df8d8]" /> New Group
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-slate-400">
             Give your group a name and pick members from your friends.
           </DialogDescription>
         </DialogHeader>
@@ -128,18 +122,18 @@ export default function CreateGroupModal({
           }}
           placeholder="Group name"
           maxLength={50}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 transition-colors"
+          className="w-full glass bg-[#093c5d]/20 text-white placeholder-slate-600 px-3 py-2.5 rounded-xl border border-[#6fd1d7]/15 focus:border-[#5df8d8]/50 focus:outline-none transition-all text-sm"
         />
 
         {/* Member picker */}
         <div className="max-h-48 overflow-y-auto -mx-1 px-1">
           {loadingFriends && (
             <div className="flex justify-center py-4">
-              <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+              <Loader2 className="w-4 h-4 text-[#6fd1d7] animate-spin" />
             </div>
           )}
           {!loadingFriends && friends.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-4">
+            <p className="text-xs text-slate-500 text-center py-4">
               No friends to add. Add friends first.
             </p>
           )}
@@ -152,60 +146,57 @@ export default function CreateGroupModal({
                   key={f._id}
                   type="button"
                   onClick={() => toggleMember(f._id)}
-                  className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg transition-colors text-left ${
-                    selected ? 'bg-blue-50' : 'hover:bg-gray-50'
-                  }`}
+                  className={`w-full flex items-center gap-3 px-2 py-2 rounded-xl transition-colors text-left ${selected ? 'bg-[#5df8d8]/10' : 'hover:bg-[#6fd1d7]/5'}`}
                 >
                   {f.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={f.avatar}
                       alt={f.username}
-                      className="w-8 h-8 rounded-full object-cover shrink-0"
+                      className="w-8 h-8 rounded-full object-cover shrink-0 border border-[#6fd1d7]/20"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6fd1d7] to-[#3b7597] flex items-center justify-center text-white text-xs font-semibold shrink-0">
                       {initials}
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-medium text-white truncate">
                       {f.username}
                     </p>
-                    <p className="text-xs text-gray-400 truncate">{f.email}</p>
+                    <p className="text-xs text-slate-500 truncate">{f.email}</p>
                   </div>
                   <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                      selected
-                        ? 'bg-blue-500 border-blue-500'
-                        : 'border-gray-300'
-                    }`}
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${selected ? 'bg-[#5df8d8] border-[#5df8d8]' : 'border-slate-600'}`}
                   >
-                    {selected && <Check className="w-3 h-3 text-white" />}
+                    {selected && <Check className="w-3 h-3 text-[#060d14]" />}
                   </div>
                 </button>
               );
             })}
         </div>
 
-        {/* Selected count */}
         {selectedIds.size > 0 && (
-          <p className="text-xs text-blue-500 -mt-1">
+          <p className="text-xs text-[#5df8d8] -mt-1">
             {selectedIds.size} member{selectedIds.size !== 1 ? 's' : ''}{' '}
             selected
           </p>
         )}
-
-        {/* Error */}
-        {error && <p className="text-xs text-red-500 -mt-1">{error}</p>}
+        {error && <p className="text-xs text-red-400 -mt-1">{error}</p>}
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={creating}>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={creating}
+            className="border-[#6fd1d7]/20 text-slate-300 hover:bg-[#6fd1d7]/10"
+          >
             Cancel
           </Button>
           <Button
             onClick={handleCreate}
             disabled={creating || !groupName.trim() || selectedIds.size === 0}
-            className="bg-blue-500 hover:bg-blue-600 text-white gap-1.5"
+            className="bg-gradient-to-r from-[#5df8d8] to-[#6fd1d7] text-[#060d14] hover:opacity-90 gap-1.5"
           >
             {creating ? (
               <>

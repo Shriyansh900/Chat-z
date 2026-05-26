@@ -8,6 +8,7 @@ import {
   Star,
   AlignJustify,
   Bell,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
@@ -31,17 +32,17 @@ export default function ChatIconRail() {
 
   return (
     <>
-      <div className="hidden sm:flex flex-col items-center w-[52px] h-full bg-white border-r border-gray-100 py-3 shrink-0 z-50 relative">
+      <div className="hidden sm:flex flex-col items-center w-[52px] h-full bg-[#060d14] border-r border-[#6fd1d7]/10 py-3 shrink-0 z-50 relative">
         {/* App logo */}
-        <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center mb-5">
-          <MessageSquare className="w-4 h-4 text-white" />
+        <div className="w-8 h-8 rounded-lg bg-[#060d14] border border-[#6fd1d7]/30 flex items-center justify-center mb-5">
+          <Zap className="w-4 h-4 text-[#5df8d8]" />
         </div>
 
         {/* Nav icons */}
         <nav className="flex flex-col items-center gap-0.5 flex-1 w-full px-1">
           <button
             title="Chats"
-            className="w-full h-10 rounded-lg flex items-center justify-center transition-colors bg-blue-50 text-blue-500"
+            className="w-full h-10 rounded-lg flex items-center justify-center transition-colors bg-[#6fd1d7]/10 text-[#5df8d8]"
           >
             <MessageSquare className="w-[18px] h-[18px]" />
           </button>
@@ -52,8 +53,8 @@ export default function ChatIconRail() {
             className={cn(
               'w-full h-10 rounded-lg flex items-center justify-center transition-colors',
               activePanel === 'friends'
-                ? 'bg-blue-50 text-blue-500'
-                : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600',
+                ? 'bg-[#6fd1d7]/10 text-[#5df8d8]'
+                : 'text-slate-500 hover:bg-[#6fd1d7]/5 hover:text-slate-300',
             )}
           >
             <Users className="w-[18px] h-[18px]" />
@@ -67,7 +68,7 @@ export default function ChatIconRail() {
             <button
               key={label}
               title={label}
-              className="w-full h-10 rounded-lg flex items-center justify-center transition-colors text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+              className="w-full h-10 rounded-lg flex items-center justify-center transition-colors text-slate-500 hover:bg-[#6fd1d7]/5 hover:text-slate-300"
             >
               <Icon className="w-[18px] h-[18px]" />
             </button>
@@ -79,13 +80,13 @@ export default function ChatIconRail() {
             className={cn(
               'relative w-full h-10 rounded-lg flex items-center justify-center transition-colors',
               activePanel === 'notifications'
-                ? 'bg-blue-50 text-blue-500'
-                : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600',
+                ? 'bg-[#6fd1d7]/10 text-[#5df8d8]'
+                : 'text-slate-500 hover:bg-[#6fd1d7]/5 hover:text-slate-300',
             )}
           >
             <Bell className="w-[18px] h-[18px]" />
             {notifCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 min-w-[14px] h-[14px] px-[3px] bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+              <span className="absolute top-1.5 right-1.5 min-w-[14px] h-[14px] px-[3px] bg-[#5df8d8] text-[#060d14] text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
                 {notifCount > 99 ? '99+' : notifCount}
               </span>
             )}
@@ -94,28 +95,28 @@ export default function ChatIconRail() {
 
         {/* Bottom: hamburger + avatar */}
         <div className="flex flex-col items-center gap-2 mt-auto">
-          <button className="w-full h-9 flex items-center justify-center text-gray-400 hover:text-gray-600">
+          <button className="w-full h-9 flex items-center justify-center text-slate-500 hover:text-slate-300 transition-colors">
             <AlignJustify className="w-[18px] h-[18px]" />
           </button>
 
-          {/* Avatar — click to open profile */}
           <button
             onClick={() => setProfileOpen(true)}
             title="My Profile"
             className="relative focus:outline-none"
           >
             {user?.avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={user.avatar}
                 alt={user.username}
-                className="w-8 h-8 rounded-full object-cover hover:opacity-80 transition-opacity"
+                className="w-8 h-8 rounded-full object-cover hover:opacity-80 transition-opacity border border-[#6fd1d7]/30"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold hover:opacity-80 transition-opacity">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#6fd1d7] to-[#3b7597] flex items-center justify-center text-white text-xs font-semibold hover:opacity-80 transition-opacity">
                 {initials}
               </div>
             )}
-            <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 border-2 border-white rounded-full" />
+            <span className="absolute bottom-0 right-0 w-2 h-2 bg-[#5df8d8] border-2 border-[#060d14] rounded-full" />
           </button>
         </div>
       </div>

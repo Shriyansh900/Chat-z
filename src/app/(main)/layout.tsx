@@ -68,27 +68,29 @@ export default function MainLayout({
 
   if (!_hydrated || !bootstrapped) {
     return (
-      <div className="flex h-screen items-center justify-center bg-white">
-        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className="flex h-screen items-center justify-center bg-[#060d14]">
+        <div className="w-6 h-6 border-2 border-[#6fd1d7]/40 border-t-[#5df8d8] rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (!accessToken) return null;
+  if (!accessToken) {
+    router.replace('/login');
+    return null;
+  }
 
   // ── Mobile layout ─────────────────────────────────────────
   if (isMobile) {
     const showChat = !!activeChat;
 
     return (
-      <div className="flex flex-col h-[100dvh] bg-white overflow-hidden">
+      <div className="flex flex-col h-dvh bg-[#060d14] overflow-hidden">
         {showChat ? (
-          // ── Active chat — full screen ──
           <>
-            <div className="flex items-center gap-2 px-3 h-[52px] bg-white border-b border-gray-100 shrink-0">
+            <div className="flex items-center gap-2 px-3 h-[52px] bg-[#0a1929] border-b border-[#6fd1d7]/10 shrink-0">
               <button
                 onClick={() => clearActiveChat()}
-                className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:bg-[#6fd1d7]/10 hover:text-[#6fd1d7] rounded-lg transition-colors shrink-0"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -101,16 +103,15 @@ export default function MainLayout({
             </main>
           </>
         ) : (
-          // ── No active chat — sidebar + bottom tabs ──
           <>
             {/* App header */}
-            <div className="flex items-center justify-between px-4 h-[52px] bg-white border-b border-gray-100 shrink-0">
+            <div className="flex items-center justify-between px-4 h-[52px] bg-[#0a1929] border-b border-[#6fd1d7]/10 shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center">
-                  <MessageSquare className="w-4 h-4 text-white" />
+                <div className="w-7 h-7 rounded-lg bg-[#060d14] border border-[#6fd1d7]/30 flex items-center justify-center">
+                  <MessageSquare className="w-4 h-4 text-[#5df8d8]" />
                 </div>
-                <span className="text-sm font-semibold text-gray-900">
-                  Chat-Z
+                <span className="text-sm font-bold text-white tracking-tight">
+                  Nex<span className="text-gradient">Chat</span>
                 </span>
               </div>
             </div>
@@ -136,7 +137,7 @@ export default function MainLayout({
             </div>
 
             {/* Bottom tab bar */}
-            <div className="flex items-center bg-white border-t border-gray-100 shrink-0 safe-area-bottom">
+            <div className="flex items-center bg-[#0a1929] border-t border-[#6fd1d7]/10 shrink-0">
               {[
                 { id: 'chats' as const, icon: MessageSquare, label: 'Chats' },
                 { id: 'friends' as const, icon: Users, label: 'Friends' },
@@ -152,13 +153,13 @@ export default function MainLayout({
                   onClick={() => setMobileTab(id)}
                   className={cn(
                     'flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 transition-colors',
-                    mobileTab === id ? 'text-blue-500' : 'text-gray-400',
+                    mobileTab === id ? 'text-[#5df8d8]' : 'text-slate-500',
                   )}
                 >
                   <div className="relative">
                     <Icon className="w-5 h-5" />
                     {badge && badge > 0 && (
-                      <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] px-[3px] bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+                      <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] px-[3px] bg-[#5df8d8] text-[#060d14] text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
                         {badge > 99 ? '99+' : badge}
                       </span>
                     )}
@@ -175,7 +176,7 @@ export default function MainLayout({
 
   // ── Desktop layout ────────────────────────────────────────
   return (
-    <div className="flex h-screen overflow-hidden bg-white">
+    <div className="flex h-screen overflow-hidden bg-[#060d14]">
       <ChatIconRail />
       <ChatSidebar />
       <div className="flex flex-col flex-1 min-w-0">

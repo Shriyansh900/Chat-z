@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { FileText, Trash2, Loader2 } from 'lucide-react';
 import api from '@/lib/axios';
-import Image from 'next/image';
 
 interface MessageBubbleProps {
   messageId: string;
@@ -26,7 +25,28 @@ export default function MessageBubble({
   onDelete,
 }: MessageBubbleProps) {
   const [deleting, setDeleting] = useState(false);
-  const isImageFile = file?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i);
+
+  /**
+   * Detect image files robustly:
+   * - Cloudinary image URLs contain "/image/upload/" in the path
+   * - Fallback: check common image extensions at the end of the URL
+   */
+  const isImageFile =
+    file &&
+    (file.includes('/image/upload/') ||
+      /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(file));
+
+  /** Extract a human-readable filename from a URL */
+  const getFileName = (url: string) => {
+    try {
+      const pathname = new URL(url).pathname;
+      const name = pathname.split('/').pop() ?? url;
+      // Strip Cloudinary version prefix like "v1234567890/"
+      return decodeURIComponent(name.replace(/^v\d+\//, ''));
+    } catch {
+      return url.split('/').pop() ?? 'file';
+    }
+  };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -81,12 +101,11 @@ export default function MessageBubble({
           !deleted &&
           (isImageFile ? (
             <div className="relative">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={file}
                 alt="attachment"
                 className="rounded-xl max-w-[240px] max-h-[220px] object-cover"
-                width={240}
-                height={220}
               />
               <span className="absolute bottom-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-black/50 text-white">
                 {time}
@@ -102,7 +121,7 @@ export default function MessageBubble({
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#5df8d8] shrink-0" />
                 <span className="text-xs truncate max-w-[140px] text-slate-300">
-                  {file.split('/').pop()}
+                  {getFileName(file)}
                 </span>
               </div>
               <span className="text-[10px] text-slate-500 shrink-0">

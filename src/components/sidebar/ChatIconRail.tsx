@@ -35,7 +35,7 @@ export default function ChatIconRail() {
       <div className="hidden sm:flex flex-col items-center w-[52px] h-full bg-[#060d14] border-r border-[#6fd1d7]/10 py-3 shrink-0 z-50 relative">
         {/* App logo */}
         <div className="w-8 h-8 rounded-lg bg-[#060d14] border border-[#6fd1d7]/30 flex items-center justify-center mb-5">
-          <Zap className="w-4 h-4 text-[#5df8d8]" />
+          <Zap size={14} className="text-[#5df8d8]" />
         </div>
 
         {/* Nav icons */}

@@ -98,7 +98,7 @@ export default function Footer() {
                 <Zap size={14} className="text-[#5df8d8]" />
               </div>
               <span className="text-white font-bold text-lg">
-                Nex<span className="text-gradient">Chat</span>
+                Chat-<span className="text-gradient">z</span>
               </span>
             </a>
             <p className="text-sm text-slate-500 leading-relaxed mb-6 max-w-xs">

@@ -15,6 +15,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useEffect, useRef, useState } from 'react';
 import api from '@/lib/axios';
 import { User, Group } from '@/types';
+import { useSocketStore } from '@/store/socketStore';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ export default function ChatSidebar({
   const { sidebarOpen, chats, setChats, setActiveChat, activeChat } =
     useChatStore();
   const { user } = useAuthStore();
+  const { onlineUsers, unreadCounts } = useSocketStore();
 
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
@@ -280,6 +282,9 @@ export default function ChatSidebar({
                     minute: '2-digit',
                   })
                 : '';
+              const isOnline =
+                !chat.isGroup && partner ? onlineUsers.has(partner._id) : false;
+              const unread = unreadCounts.get(chat._id) ?? 0;
 
               return (
                 <button
@@ -305,8 +310,10 @@ export default function ChatSidebar({
                         {initials}
                       </div>
                     )}
-                    {/* Online dot */}
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#5df8d8] border-2 border-[#060d14] rounded-full" />
+                    {/* Online dot — only shown for DM partners who are online */}
+                    {isOnline && (
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#5df8d8] border-2 border-[#060d14] rounded-full" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
@@ -322,9 +329,16 @@ export default function ChatSidebar({
                         {lastTime}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">
-                      {lastMsg}
-                    </p>
+                    <div className="flex items-center justify-between mt-0.5">
+                      <p className="text-xs text-slate-500 truncate flex-1">
+                        {lastMsg}
+                      </p>
+                      {unread > 0 && !isActive && (
+                        <span className="ml-2 shrink-0 min-w-[18px] h-[18px] px-1 bg-[#5df8d8] text-[#060d14] text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </button>
               );

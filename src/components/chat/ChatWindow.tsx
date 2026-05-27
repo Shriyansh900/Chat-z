@@ -3,7 +3,6 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { useChatStore } from '@/store/chatStore';
 import { useAuthStore } from '@/store/authStore';
-import { useSocketStore } from '@/store/socketStore';
 import { getSocket } from '@/lib/socket';
 import { Message } from '@/types';
 import { Loader2, MessageCircle } from 'lucide-react';
@@ -96,7 +95,6 @@ export default function ChatWindow() {
 
   useEffect(() => {
     const socket = getSocket();
-    const { setUserOnline, setUserOffline } = useSocketStore.getState();
 
     const onMessage = (message: Message) => {
       if (message.sender._id === currentUserId.current) return;
@@ -127,10 +125,6 @@ export default function ChatWindow() {
       setIsTyping(false);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-    const onUserOnline = ({ userId }: { userId: string }) =>
-      setUserOnline(userId);
-    const onUserOffline = ({ userId }: { userId: string }) =>
-      setUserOffline(userId);
     const onReconnect = () => {
       if (activeChatIdForSocket.current)
         socket.emit('join_chat', activeChatIdForSocket.current);
@@ -140,8 +134,6 @@ export default function ChatWindow() {
     socket.on('message_deleted', onMessageDeleted);
     socket.on('typing', onTyping);
     socket.on('stop_typing', onStopTyping);
-    socket.on('user_online', onUserOnline);
-    socket.on('user_offline', onUserOffline);
     socket.on('connect', onReconnect);
 
     return () => {
@@ -149,8 +141,6 @@ export default function ChatWindow() {
       socket.off('message_deleted', onMessageDeleted);
       socket.off('typing', onTyping);
       socket.off('stop_typing', onStopTyping);
-      socket.off('user_online', onUserOnline);
-      socket.off('user_offline', onUserOffline);
       socket.off('connect', onReconnect);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };

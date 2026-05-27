@@ -1,6 +1,6 @@
 'use client';
 
-import { Paperclip, Smile, X, FileText, Send, Shield } from 'lucide-react';
+import { Paperclip, Smile, X, FileText, Send } from 'lucide-react';
 import { useRef, useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { getSocket } from '@/lib/socket';
@@ -214,14 +214,6 @@ export default function ChatInput() {
             <Send className="w-4 h-4" />
           )}
         </button>
-      </div>
-
-      {/* E2EE note */}
-      <div className="flex items-center justify-center gap-1.5 mt-2">
-        <Shield className="w-2.5 h-2.5 text-[#6fd1d7]" />
-        <span className="text-[10px] text-slate-600">
-          Messages are end-to-end encrypted. NexChat cannot read them.
-        </span>
       </div>
     </div>
   );

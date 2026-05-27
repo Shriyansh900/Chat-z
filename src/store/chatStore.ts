@@ -24,12 +24,17 @@ export const useChatStore = create<ChatState>((set) => ({
   messages: [],
   sidebarOpen: true,
   setChats: (chats) => set({ chats }),
-  setActiveChat: (activeChat) => set({ activeChat }),
+  setActiveChat: (activeChat) => {
+    // Clear unread badge for this chat when it's opened
+    import('@/store/socketStore').then(({ useSocketStore }) => {
+      useSocketStore.getState().clearUnread(activeChat._id);
+    });
+    set({ activeChat });
+  },
   clearActiveChat: () => set({ activeChat: null, messages: [] }),
   removeChat: (chatId) =>
     set((state) => ({
       chats: state.chats.filter((c) => c._id !== chatId),
-      // Also clear active chat if the removed chat was open
       activeChat: state.activeChat?._id === chatId ? null : state.activeChat,
       messages: state.activeChat?._id === chatId ? [] : state.messages,
     })),

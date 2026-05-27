@@ -8,8 +8,16 @@ const nextConfig: NextConfig = {
   // reactCompiler: true,
 
   images: {
-    // Use remotePatterns instead of deprecated images.domains
-    remotePatterns: [],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+      },
+    ],
   },
 };
 

@@ -32,14 +32,11 @@ export default function LandingNavbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         {/* Logo */}
         <a href="#" className="flex items-center gap-2.5 group">
-          <div className="relative w-8 h-8">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#5df8d8] to-[#6fd1d7] rounded-lg opacity-20 group-hover:opacity-40 transition-opacity blur-sm" />
-            <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-[#060d14] border border-[#6fd1d7]/30 group-hover:border-[#5df8d8]/50 transition-colors">
-              <Zap size={16} className="text-[#5df8d8]" />
-            </div>
+          <div className="w-8 h-8 rounded-lg bg-[#060d14] border border-[#6fd1d7]/30 flex items-center justify-center">
+            <Zap size={14} className="text-[#5df8d8]" />
           </div>
-          <span className="text-white font-bold text-lg tracking-tight">
-            Nex<span className="text-gradient">Chat</span>
+          <span className="text-white font-bold text-lg">
+            Chat-<span className="text-gradient">z</span>
           </span>
         </a>
 

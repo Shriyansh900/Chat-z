@@ -3,7 +3,7 @@
 import { useAuthStore } from '@/store/authStore';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { connectSocket, disconnectSocket } from '@/lib/socket';
+import { connectSocket, disconnectSocket, getSocket } from '@/lib/socket';
 import ChatIconRail from '@/components/sidebar/ChatIconRail';
 import ChatSidebar from '@/components/sidebar/ChatSidebar';
 import ChatNavbar from '@/components/navbar/ChatNavbar';
@@ -11,10 +11,13 @@ import NotificationPanel from '@/components/sidebar/NotificationPanel';
 import FriendsPanel from '@/components/sidebar/FriendsPanel';
 import axios from 'axios';
 import { BASE_URL } from '@/lib/axios';
+import api from '@/lib/axios';
 import { useChatStore } from '@/store/chatStore';
+import { useSocketStore } from '@/store/socketStore';
 import { useMobile } from '@/hooks/useMobile';
-import { ArrowLeft, Bell, Users, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Bell, Users, MessageSquare, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Message } from '@/types';
 
 export default function MainLayout({
   children,
@@ -60,8 +63,91 @@ export default function MainLayout({
 
   useEffect(() => {
     const { accessToken } = useAuthStore.getState();
-    if (accessToken && user) connectSocket();
+    if (!accessToken || !user) return;
+
+    // Request browser notification permission once
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    connectSocket();
+
+    const { setUserOnline, setUserOffline, incrementUnread } =
+      useSocketStore.getState();
+
+    const seedOnlineFriends = async () => {
+      try {
+        const res = await api.get<{ _id: string }[]>(
+          '/users/me/online-friends',
+        );
+        const ids: string[] = Array.isArray(res.data)
+          ? res.data.map((u) => u._id)
+          : [];
+        ids.forEach((id) => setUserOnline(id));
+      } catch {
+        /* non-critical — socket events will keep state in sync */
+      }
+    };
+
+    const socket = getSocket();
+
+    const onConnected = () => seedOnlineFriends();
+    const onUserOnline = ({ userId }: { userId: string }) =>
+      setUserOnline(userId);
+    const onUserOffline = ({ userId }: { userId: string }) =>
+      setUserOffline(userId);
+
+    const onReceiveMessage = (message: Message) => {
+      const currentUserId = useAuthStore.getState().user?._id;
+      // Ignore messages sent by the current user
+      if (message.sender._id === currentUserId) return;
+
+      const msgChatId =
+        typeof message.chat === 'string' ? message.chat : message.chat._id;
+      const activeChatId = useChatStore.getState().activeChat?._id;
+
+      // Only notify if the message is NOT in the currently open chat
+      if (msgChatId === activeChatId) return;
+
+      // Increment in-app unread badge
+      incrementUnread(msgChatId);
+
+      // Browser push notification
+      if (
+        typeof window !== 'undefined' &&
+        'Notification' in window &&
+        Notification.permission === 'granted' &&
+        document.visibilityState === 'hidden'
+      ) {
+        const senderName = message.sender.username ?? 'Someone';
+        const body = message.content
+          ? message.content.length > 60
+            ? message.content.slice(0, 60) + '…'
+            : message.content
+          : '📎 Sent an attachment';
+        new Notification(`New message from ${senderName}`, {
+          body,
+          icon: '/assets/logo.png',
+          tag: msgChatId, // collapses multiple notifications per chat
+        });
+      }
+    };
+
+    socket.on('connected', onConnected);
+    socket.on('user_online', onUserOnline);
+    socket.on('user_offline', onUserOffline);
+    socket.on('receive_message', onReceiveMessage);
+
+    // If already connected when this effect runs, seed immediately
+    if (socket.connected) seedOnlineFriends();
+
     return () => {
+      socket.off('connected', onConnected);
+      socket.off('user_online', onUserOnline);
+      socket.off('user_offline', onUserOffline);
+      socket.off('receive_message', onReceiveMessage);
       disconnectSocket();
     };
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -108,10 +194,10 @@ export default function MainLayout({
             <div className="flex items-center justify-between px-4 h-[52px] bg-[#0a1929] border-b border-[#6fd1d7]/10 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-[#060d14] border border-[#6fd1d7]/30 flex items-center justify-center">
-                  <MessageSquare className="w-4 h-4 text-[#5df8d8]" />
+                  <Zap className="w-3.5 h-3.5 text-[#5df8d8]" />
                 </div>
                 <span className="text-sm font-bold text-white tracking-tight">
-                  Nex<span className="text-gradient">Chat</span>
+                  Chat-<span className="text-gradient">z</span>
                 </span>
               </div>
             </div>

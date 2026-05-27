@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import api from '@/lib/axios';
 import { User } from '@/types';
 import { useChatStore } from '@/store/chatStore';
+import { useSocketStore } from '@/store/socketStore';
 
 interface FriendsPanelProps {
   open: boolean;
@@ -30,6 +31,7 @@ export default function FriendsPanel({
   const [dmLoading, setDmLoading] = useState<string | null>(null);
   const [unfriendingId, setUnfriendingId] = useState<string | null>(null);
   const { chats, setChats, setActiveChat } = useChatStore();
+  const { onlineUsers } = useSocketStore();
 
   const fetchFriends = async () => {
     setLoading(true);
@@ -101,29 +103,40 @@ export default function FriendsPanel({
         friends.map((friend) => {
           const initials = friend.username.slice(0, 2).toUpperCase();
           const isLoadingDM = dmLoading === friend._id;
+          const isOnline = onlineUsers.has(friend._id);
           return (
             <div
               key={friend._id}
               className="flex items-center gap-3 px-4 py-3 hover:bg-[#6fd1d7]/5 transition-colors"
             >
-              {friend.avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={friend.avatar}
-                  alt={friend.username}
-                  className="w-9 h-9 rounded-full object-cover shrink-0 border border-[#6fd1d7]/20"
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#6fd1d7] to-[#3b7597] flex items-center justify-center text-white text-xs font-semibold shrink-0">
-                  {initials}
-                </div>
-              )}
+              <div className="relative shrink-0">
+                {friend.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={friend.avatar}
+                    alt={friend.username}
+                    className="w-9 h-9 rounded-full object-cover border border-[#6fd1d7]/20"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#6fd1d7] to-[#3b7597] flex items-center justify-center text-white text-xs font-semibold">
+                    {initials}
+                  </div>
+                )}
+                {isOnline && (
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#5df8d8] border-2 border-[#060d14] rounded-full" />
+                )}
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">
                   {friend.username}
                 </p>
-                <p className="text-xs text-slate-500 truncate">
-                  {friend.email}
+                <p
+                  className={cn(
+                    'text-xs truncate',
+                    isOnline ? 'text-[#5df8d8]' : 'text-slate-500',
+                  )}
+                >
+                  {isOnline ? 'Online' : friend.email}
                 </p>
               </div>
               <button
